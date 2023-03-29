@@ -9,7 +9,7 @@ using HarmonyLib;
 using HarmonyLib.Tools;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
-namespace OneHitResource;
+namespace DescriptiveResources;
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BasePlugin
@@ -29,7 +29,7 @@ public class Plugin : BasePlugin
 
     public void Awake()
     {
-        Harmony harmony = new Harmony("OneHitResource");
+        Harmony harmony = new Harmony("DescriptiveResources");
         var _original = AccessTools.Method(typeof(ItemPickPointTimeRebirth), "PickItem");
         original = harmony.Patch(_original);
         harmony.PatchAll();
