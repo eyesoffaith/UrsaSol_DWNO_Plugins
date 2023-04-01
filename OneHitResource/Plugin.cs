@@ -39,13 +39,11 @@ public class Plugin : BasePlugin
 [HarmonyPatch(typeof(ItemPickPointTimeRebirth), "PickItem")]
 public static class Patch
 {
-    [HarmonyPrefix]
-    public static bool GrabReference(ItemPickPointTimeRebirth __instance, int requestPickCount, float rarityRevision) {
+    public static bool Prefix(ItemPickPointTimeRebirth __instance, int requestPickCount, float rarityRevision) {
         return false;
     }
 
-    [HarmonyPostfix]
-    public static void Repeat(int requestPickCount, float rarityRevision, ItemPickPointTimeRebirth __instance, ref dynamic __result) {
+    public static void Postfix(int requestPickCount, float rarityRevision, ItemPickPointTimeRebirth __instance, ref dynamic __result) {
         var pulls = __instance.remainderPickCount;
         List<UInt32> materials = new List<UInt32>();
         for (int i = 0; i < pulls; i++) {
