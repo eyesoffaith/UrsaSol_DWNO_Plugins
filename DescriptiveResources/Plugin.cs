@@ -25,7 +25,7 @@ public class Plugin : BasePlugin
         // Plugin startup logic
         Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
 
-        foreach (var method in typeof(Action).GetMethods()) {
+        foreach (var method in typeof(ParameterItemData).GetMethods()) {
             Plugin.Logger.LogMessage($"{method}");
         }
         this.Awake();
@@ -38,88 +38,44 @@ public class Plugin : BasePlugin
     }
 }
 
-// [HarmonyPatch(typeof(uItemPickPanelResult), "GetResultMessage")]
-// public static class Patch_GetResultMessage
-// {
-//     // public static bool Prefix() {
-//     //     return false;
-//     // }
-
-//     public static void Postfix(uint[] itemIds, ref dynamic __result, uItemPickPanelResult __instance) {
-//         Plugin.Logger.LogMessage($"[Patch_GetResultMessage::Postfix]");
-//         Plugin.Logger.LogMessage($"__instance = {__instance}");
-//         Plugin.Logger.LogMessage($"__result = {__result}");
-//         Plugin.Logger.LogMessage($"itemIds.Length = {itemIds.Length}");
-
-//         // var a = AppMainScript.parameterManager.itemData;
-//         // Plugin.Logger.LogMessage($"a = {a}");
-//         // Plugin.Logger.LogMessage($"a.GetType() = {a.GetType()}");
-//         // var b = a.GetParams();
-//         // Plugin.Logger.LogMessage($"b = {b}");
-//         // Plugin.Logger.LogMessage($"b.GetType() = {b.GetType()}");
-
-//         // foreach (var parameterItemData in @params) {
-//         //     Plugin.Logger.LogMessage($"{parameterItemData.GetName()}");
-//         // }
-//     }
-// }
-
-[HarmonyPatch(typeof(ItemPickPointTimeRebirth), "SetItemPickPointData")]
-public static class Patch_SetItemPickPointData
-{
-    public static void Postfix(ParameterMaterialPickPointData parameterMaterialPickPointData, uItemPickPanelCommand __instance) {
-        Plugin.Logger.LogMessage($"[Patch_SetItemPickPointData::Postfix]");
-        Plugin.Logger.LogMessage($"__instance = {__instance}");
-
-        var parameterMaterialPickPointData_id = Traverse.Create(parameterMaterialPickPointData).Property("m_id").GetValue();
-        Plugin.Logger.LogMessage($"id = {parameterMaterialPickPointData_id}");
-        var itemLength = parameterMaterialPickPointData.GetItemDataLength();
-        for (int i =  0; i < itemLength; i++) {
-            var itemData = parameterMaterialPickPointData.GetItemData(i);
-            Plugin.Logger.LogMessage($"\titem_id = {itemData.id}");
-            Plugin.Logger.LogMessage($"\titem_probability = {itemData.probability}");
-        }
-    }
-}
-
-[HarmonyPatch(typeof(uItemPickPanelCommand), "_GetMaterialPickPointMaterialKind")]
-public static class Patch__GetMaterialPickPointMaterialKind
-{
-    public static void Postfix(ItemPickPointTimeRebirth _materialPickPoint, uItemPickPanelCommand __instance) {
-        Plugin.Logger.LogMessage($"[Patch__GetMaterialPickPointMaterialKind::Postfix]");
-        Plugin.Logger.LogMessage($"__instance = {__instance}");
-
-        var parameterMaterialPickPointData = Traverse.Create(_materialPickPoint).Property("m_parameterMaterialPickPointData").GetValue();
-        var parameterMaterialPickPointData_id = Traverse.Create(parameterMaterialPickPointData).Property("m_id").GetValue();
-        Plugin.Logger.LogMessage($"parameterMaterialPickPointData = {parameterMaterialPickPointData}");
-        Plugin.Logger.LogMessage($"id = {parameterMaterialPickPointData_id}");
-    }
-}
-
 [HarmonyPatch(typeof(uItemPickPanelCommand), "OpenMessageWindow")]
 public static class Patch_OpenMessageWindow
 {
-    // public static bool Prefix() {
-    //     return false;
-    // }
-
+    static readonly uint[] MATERIAL_KIND_MSG_LANG = new uint[4]
+	{
+		Language.makeHash("material_liquid"),
+		Language.makeHash("material_metal"),
+		Language.makeHash("material_stone"),
+		Language.makeHash("material_wood")
+	};
+    
     public static void Postfix(Action callback, uItemPickPanelCommand __instance) {
-        Plugin.Logger.LogMessage($"[Patch_OpenMessageWindow::Postfix]");
-        Plugin.Logger.LogMessage($"__instance = {__instance}");
-        Plugin.Logger.LogMessage($"callback = {callback}");
-
         uCommonMessageWindow center = MainGameManager.Ref.MessageManager.GetCenter();
-        // center.SetMessage("Beep Beep I'm A Sheep!", uCommonMessageWindow.Pos.Center);
+        ItemPickPointTimeRebirth itemPickPointTimeRebirth = ItemPickPointManager.Ref.GetMaterialPickPoint(ItemPickPointManager.Ref.TargetPoint.id);
+        ParameterMaterialPickPointData parameterMaterialPickPointData = (ParameterMaterialPickPointData)Traverse.Create(itemPickPointTimeRebirth).Property("m_parameterMaterialPickPointData").GetValue();
 
-        // var a = AppMainScript.parameterManager.itemData;
-        // Plugin.Logger.LogMessage($"a = {a}");
-        // Plugin.Logger.LogMessage($"a.GetType() = {a.GetType()}");
-        // var b = a.GetParams();
-        // Plugin.Logger.LogMessage($"b = {b}");
-        // Plugin.Logger.LogMessage($"b.GetType() = {b.GetType()}");
+        if (parameterMaterialPickPointData is not null) {
+            var parameterMaterialPickPointData_id = Traverse.Create(parameterMaterialPickPointData).Property("m_id").GetValue();
+            var itemLength = parameterMaterialPickPointData.GetItemDataLength();
 
-        // foreach (var parameterItemData in @params) {
-        //     Plugin.Logger.LogMessage($"{parameterItemData.GetName()}");
-        // }
+            String message = $"{Language.GetString("item_pick_message_1")}\n";
+            for (int i = itemLength-1; i >= 0; i--) {
+                var itemData = parameterMaterialPickPointData.GetItemData(i);
+                ParameterItemData paramItemData = ParameterItemData.GetParam(itemData.id);
+                message += $"[{itemData.probability}%] {paramItemData.GetName()}\n";
+            }
+            message += $"{Language.GetString("item_pick_message_2")}\n";
+
+            ParameterItemDataMaterial param2 = HashIdSearchClass<ParameterItemDataMaterial>.GetParam(AppMainScript.parameterManager.itemDataMaterial, itemPickPointTimeRebirth.itemId);
+            int m_id = (int)Traverse.Create(param2).Property("m_kind").GetValue();
+
+            message = String.Format(
+                message, 
+                Language.GetString(MATERIAL_KIND_MSG_LANG[m_id]), 
+                itemPickPointTimeRebirth.remainderPickCount
+            );
+
+            center.SetMessage(message, uCommonMessageWindow.Pos.Center);
+        }
     }
 }
