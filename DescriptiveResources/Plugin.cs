@@ -24,10 +24,6 @@ public class Plugin : BasePlugin
             
         // Plugin startup logic
         Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
-
-        foreach (var method in typeof(ParameterItemData).GetMethods()) {
-            Plugin.Logger.LogMessage($"{method}");
-        }
         this.Awake();
     }
 
