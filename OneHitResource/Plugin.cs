@@ -14,12 +14,6 @@ using UnityEngine.UI;
 
 namespace OneHitResource;
 
-// TODO: Current implementation returns a max of one digimon card since digimon card acquisition is handled in a different function
-//   - uItemPickPanel::PickMaterial checks percent chance (10%) and sets the card ID the player gets
-//   - test if a Postfix can set multiple digimon cards as "acquired" and if that gets properly added to player inventory
-//   - try a Postfix on uItemPickPanel::PickMaterial to re-run card chance reflecting the 10% over the requestItemPickCount
-//      - i.e. 1-(1-[CARD_CHANCE])^REQUEST_ITEM_PICK_COUNT
-
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BasePlugin
 {
