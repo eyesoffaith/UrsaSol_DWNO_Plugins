@@ -59,7 +59,7 @@ public static class Patch_PickItem
     }
 }
 
-// Undo card acquisition and do it ourselves
+// Custom card acquisition
 [HarmonyPatch(typeof(uItemPickPanel), "PickMaterial")]
 public static class Patch_PickMaterial
 {
@@ -67,18 +67,11 @@ public static class Patch_PickMaterial
     public static List<int> acquiredDigimonCards = new List<int>();
     public static void Postfix(uItemPickPanel __instance)
     {
-        int cardNum = (int)Traverse.Create(__instance).Property("m_digimonCardNumber").GetValue();
-        if (cardNum > 0) {
-            var isGetFlag = StorageData.m_digimonCardFlag.IsGetFlag((uint)cardNum);
-            StorageData.m_digimonCardFlag.SetFlag((uint)cardNum, false);
-            isGetFlag = StorageData.m_digimonCardFlag.IsGetFlag((uint)cardNum);
-        }
-
         dynamic params2 = Traverse.Create(AppMainScript.parameterManager.digimonCardData).Property("m_params").GetValue();
         List<int> list = new List<int>();
         foreach (ParameterDigimonCardData parameterDigimonCardData in params2)
         {
-            cardNum = (int)Traverse.Create(parameterDigimonCardData).Property("m_number").GetValue();
+            int cardNum = (int)Traverse.Create(parameterDigimonCardData).Property("m_number").GetValue();
             if (!StorageData.m_digimonCardFlag.IsGetFlag((uint)cardNum))
             {
                 list.Add(cardNum);
@@ -92,7 +85,7 @@ public static class Patch_PickMaterial
                     if (list.Count > 0)
                     {
                         int index = UnityEngine.Random.Range(0, list.Count);
-                        cardNum = list[index];
+                        int cardNum = list[index];
                         if (StorageData.m_digimonCardFlag.SetFlag((uint)cardNum, true)) {
                             acquiredDigimonCards.Add(cardNum);
                             list.RemoveAt(index);
@@ -104,10 +97,12 @@ public static class Patch_PickMaterial
                 }
             }
         }
+        acquiredDigimonCards.Sort();
     }
 }
 
-// Add custom card message to result screen
+// Check message to see if card was added by vanilla code, remove if present and undo card acquisition
+// Write custom message for our cards
 [HarmonyPatch(typeof(uItemPickPanelResult), "enablePanel")]
 public static class Patch_enablePanel
 {
