@@ -8,6 +8,7 @@ using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using HarmonyLib.Tools;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
+using UnityEngine.UI;
 
 namespace DescriptiveResources;
 
@@ -51,25 +52,18 @@ public static class Patch_OpenMessageWindow
         ParameterMaterialPickPointData parameterMaterialPickPointData = (ParameterMaterialPickPointData)Traverse.Create(itemPickPointTimeRebirth).Property("m_parameterMaterialPickPointData").GetValue();
 
         if (parameterMaterialPickPointData is not null) {
-            var parameterMaterialPickPointData_id = Traverse.Create(parameterMaterialPickPointData).Property("m_id").GetValue();
+            // var parameterMaterialPickPointData_id = Traverse.Create(parameterMaterialPickPointData).Property("m_id").GetValue();
             var itemLength = parameterMaterialPickPointData.GetItemDataLength();
 
-            String message = $"{Language.GetString("item_pick_message_1")}\n";
+            string message = "";
             for (int i = itemLength-1; i >= 0; i--) {
                 var itemData = parameterMaterialPickPointData.GetItemData(i);
                 ParameterItemData paramItemData = ParameterItemData.GetParam(itemData.id);
-                message += $"[{itemData.probability}%] {paramItemData.GetName()}\n";
+                message += $"[{itemData.probability}%] ";
+                message += AppInfo.Ref.IsRareMaterial(itemData.id) ? $"<color=#ffff00ff>{paramItemData.GetName()}</color>" : $"{paramItemData.GetName()}";
+                message += '\n';
             }
-            message += $"{Language.GetString("item_pick_message_2")}\n";
-
-            ParameterItemDataMaterial param2 = HashIdSearchClass<ParameterItemDataMaterial>.GetParam(AppMainScript.parameterManager.itemDataMaterial, itemPickPointTimeRebirth.itemId);
-            int m_id = (int)Traverse.Create(param2).Property("m_kind").GetValue();
-
-            message = String.Format(
-                message, 
-                Language.GetString(MATERIAL_KIND_MSG_LANG[m_id]), 
-                itemPickPointTimeRebirth.remainderPickCount
-            );
+            message += ((Text)Traverse.Create(center).Property("m_label").GetValue()).text;
 
             center.SetMessage(message, uCommonMessageWindow.Pos.Center);
         }
