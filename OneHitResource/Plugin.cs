@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Linq;
 using System.Reflection;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using BepInEx;
 using BepInEx.Core.Logging.Interpolation;
 using BepInEx.Logging;
@@ -46,15 +48,14 @@ public class Plugin : BasePlugin
 [HarmonyPatch(typeof(ItemPickPointTimeRebirth), "PickItem")]
 public static class Patch_PickItem
 {
-    public static int remainderPickCount = 0;
-    public static bool Prefix(ItemPickPointTimeRebirth __instance, int requestPickCount, float rarityRevision) {
-        remainderPickCount = (int)__instance.remainderPickCount;
+    public static bool Prefix() {
         return false;
     }
 
     public static void Postfix(int requestPickCount, float rarityRevision, ref dynamic __result, ItemPickPointTimeRebirth __instance) {
         List<UInt32> materials = new List<UInt32>();
-        for (int i = 0; i < Patch_PickItem.remainderPickCount; i++) {
+        int remainderPickCount = __instance.remainderPickCount;
+        for (int i = 0; i < remainderPickCount; i++) {
             dynamic part = Plugin.original.Invoke(__instance, new object[] { __instance, requestPickCount, rarityRevision });
             foreach (var item in part) {
                 materials.Add(item);
@@ -68,36 +69,37 @@ public static class Patch_PickItem
 [HarmonyPatch(typeof(uItemPickPanel), "PickMaterial")]
 public static class Patch_PickMaterial
 {
+    public static int cardProbability = 10;
     public static List<int> acquiredDigimonCards = new List<int>();
-    public static int cardProbability = 100;
     public static void Postfix(uItemPickPanel __instance)
     {
-        int m_digimonCardNumber = (int)Traverse.Create(__instance).Property("m_digimonCardNumber").GetValue();
-        if (m_digimonCardNumber > 0) {
-            StorageData.m_digimonCardFlag.SetFlag((uint)m_digimonCardNumber, false);
+        int cardNum = (int)Traverse.Create(__instance).Property("m_digimonCardNumber").GetValue();
+        if (cardNum > 0) {
+            var isGetFlag = StorageData.m_digimonCardFlag.IsGetFlag((uint)cardNum);
+            StorageData.m_digimonCardFlag.SetFlag((uint)cardNum, false);
+            isGetFlag = StorageData.m_digimonCardFlag.IsGetFlag((uint)cardNum);
         }
 
         dynamic params2 = Traverse.Create(AppMainScript.parameterManager.digimonCardData).Property("m_params").GetValue();
         List<int> list = new List<int>();
         foreach (ParameterDigimonCardData parameterDigimonCardData in params2)
         {
-            int cardNum = (int)Traverse.Create(parameterDigimonCardData).Property("m_number").GetValue();
+            cardNum = (int)Traverse.Create(parameterDigimonCardData).Property("m_number").GetValue();
             if (!StorageData.m_digimonCardFlag.IsGetFlag((uint)cardNum))
             {
-                // Plugin.Logger.LogMessage($"Card #{cardNum} is available");
                 list.Add(cardNum);
             }
         }
 
+        int remainderPickCount = ItemPickPointManager.Ref.GetMaterialPickPoint(ItemPickPointManager.Ref.PickingPoint.id).remainderPickCount;
         if (!StorageData.m_digimonCardFlag.IsAllGetFlag()) {
-            for (int i = 0; i < Patch_PickItem.remainderPickCount; i++) {
+            for (int i = 0; i < remainderPickCount; i++) {
                 if (UnityEngine.Random.Range(0, 100) <= cardProbability) {
                     if (list.Count > 0)
                     {
                         int index = UnityEngine.Random.Range(0, list.Count);
-                        int cardNum = list[index];
+                        cardNum = list[index];
                         if (StorageData.m_digimonCardFlag.SetFlag((uint)cardNum, true)) {
-                            // Plugin.Logger.LogMessage($"Adding card #{cardNum}");
                             acquiredDigimonCards.Add(cardNum);
                             list.RemoveAt(index);
                         }
@@ -120,9 +122,15 @@ public static class Patch_enablePanel
         var messageWindow = MainGameManager.Ref.MessageManager.GetCenter();
         string message = ((Text)Traverse.Create(messageWindow).Property("m_label").GetValue()).text;
 
+        Match m = Regex.Match(message, @"(?<=#)\d{3}");
+        if (m.Success) {
+            Plugin.Logger.LogInfo($"Removing card detected from base code {m.Value}");
+            StorageData.m_digimonCardFlag.SetFlag((uint)int.Parse(m.Value), false);
+            var lines = message.Split('\n').ToList();
+            lines.RemoveAt(lines.Count - 1);
+            message = String.Join('\n', lines);
+        }
         foreach (var cardNum in Patch_PickMaterial.acquiredDigimonCards) {
-            // ParameterDigimonCardData param2 = ParameterDigimonCardData.GetParam((int)cardNum);
-            // int m_number = (int)Traverse.Create(param2).Property("m_number").GetValue();
             message += string.Format("\n" + Language.GetString("item_pick_message_6"), cardNum.ToString("D3"));
         }
         Patch_PickMaterial.acquiredDigimonCards.Clear();
