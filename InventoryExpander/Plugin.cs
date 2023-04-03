@@ -4,15 +4,15 @@ using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using HarmonyLib.Tools;
 using System;
+using System.Diagnostics;
 using System.Reflection;
 using System.Collections.Generic;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 namespace InventoryExpander;
 
-// TODO: Attempt manually patching ItemStorageData constructor
-//     var ctor = (MethodBase)((typeof(ItemStorageData)).GetMember(".ctor", AccessTools.all))[0];
-//     harmony.Patch(ctor, postfix: new HarmonyMethod(typeof(Patch_ItemStorageData), "Postfix"));
+// TODO: See if you can figure out what is returned when this line is called by uItemPickPanel::PickMaterial
+//  - List<ItemData> itemListKindBit = StorageData.m_ItemStorageData.GetItemListKindBit(ItemStorageData.StorageType.MATERIAL, ParameterItemData.KindIndexBit.KindMaterialBit);
         
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BasePlugin
@@ -23,24 +23,33 @@ public class Plugin : BasePlugin
     {
         Plugin.Logger = base.Log;
         HarmonyFileLog.Enabled = true;
-            
-        // Plugin startup logic
         Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
-        Plugin.Logger.LogInfo($"ItemStorageData Methods");
-        foreach (var method in typeof(ItemStorageData).GetMethods()) {
-            Plugin.Logger.LogInfo(method);
-        }
-        Plugin.Logger.LogInfo($"ItemStorageData Properties");
-        foreach (var property in typeof(ItemStorageData).GetProperties()) {
-            Plugin.Logger.LogInfo(property);
-        }
+            
+        // // Plugin startup logic
+        // Plugin.Logger.LogInfo($"ItemStorageData Methods");
+        // foreach (var method in typeof(ItemStorageData).GetMethods()) {
+        //     Plugin.Logger.LogInfo(method);
+        // }
+        // Plugin.Logger.LogInfo($"ItemStorageData Properties");
+        // foreach (var property in typeof(ItemStorageData).GetProperties()) {
+        //     Plugin.Logger.LogInfo(property);
+        // }
+
+        // Plugin.Logger.LogInfo($"StorageData Methods");
+        // foreach (var method in typeof(StorageData).GetMethods()) {
+        //     Plugin.Logger.LogInfo(method);
+        // }
+        // Plugin.Logger.LogInfo($"StorageData Properties");
+        // foreach (var property in typeof(StorageData).GetProperties()) {
+        //     Plugin.Logger.LogInfo(property);
+        // }
+
         this.Awake();
     }
 
     public void Awake()
     {
         Harmony harmony = new Harmony("InventoryExpander");
-
         harmony.PatchAll();
     }
 }
@@ -70,30 +79,61 @@ class Patch_InitializeItemList
         }
     }
 }
+[HarmonyPatch(typeof(ItemStorageData), "AddItemPlayer")]
+public static class Patch_AddItemPlayer
+{
+    public static bool Prefix() 
+    {
+        Plugin.Logger.LogMessage("[ItemStorageData::Patch_AddItemPlayer::Prefix]");
 
-// [HarmonyPatch(typeof(ItemStorageData), "CreateInitItemList")]
-// [HarmonyPatch(new Type[] { typeof(List<ItemData>), typeof(int) }, new ArgumentType[] { ArgumentType.Ref, ArgumentType.Normal })]
-// class Patch_CreateInitItemList
-// {
-//     static void Postfix(ref List<ItemData> list, int max_capacity, ItemStorageData __instance)
-//     {
-//         Plugin.Logger.LogMessage("[ItemStorageData::Patch_CreateInitItemList::Postfix]");
-//         Plugin.Logger.LogMessage($"max_capacity = {max_capacity}");
-//         List<ItemData>[] m_itemDataListTbl = (List<ItemData>[])Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        return true;
+    }
 
-//         Plugin.Logger.LogMessage($"list.Capacity = {list.Capacity}");
-//         foreach(var _list in m_itemDataListTbl) {
-//             Plugin.Logger.LogMessage($"list.Capacity = {_list.Capacity}");
-//         }
-//     }
-// }
+    public static void Postfix() 
+    {
+        Plugin.Logger.LogMessage("[ItemStorageData::Patch_AddItemPlayer::Postfix]");
+    }
+}
+
+[HarmonyPatch(typeof(uItemPickPanel), "PickMaterial")]
+public static class Patch_PickMaterial
+{
+    public static bool Prefix() 
+    {
+        Plugin.Logger.LogMessage("[uItemPickPanel::Patch_PickMaterial::Prefix]");
+
+        return true;
+    }
+
+    public static void Postfix() 
+    {
+        Plugin.Logger.LogMessage("[uItemPickPanel::Patch_PickMaterial::Postfix]");
+    }
+}
 
 [HarmonyPatch(typeof(ItemStorageData))]
 [HarmonyPatch("GetTypeMaxNum")]
 [HarmonyPatch(new Type[] { typeof(ItemStorageData.StorageType) }, new ArgumentType[] { ArgumentType.Ref })]
 public static class Patch_GetTypeMaxNumRef
 {
-    public static void Postfix(ItemStorageData.StorageType type, ref int __result) {
+    public static void Postfix(ItemStorageData.StorageType type, ref int __result, ItemStorageData __instance) 
+    {
+        Plugin.Logger.LogMessage("[ItemStorageData::Patch_GetTypeMaxNumRef::Postfix]");
+        Plugin.Logger.LogMessage($"type = {type}");
+
+        if (type == ItemStorageData.StorageType.MATERIAL) {
+            System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
+            for (int i = 0; i < t.FrameCount; i++) {
+                StackFrame sf = t.GetFrame(i);
+                Plugin.Logger.LogMessage($"{sf.GetMethod()}@{sf.GetFileLineNumber()}");
+            }
+        }
+
+        // dynamic maxList = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        // foreach (var list in maxList) {
+        //     Plugin.Logger.LogMessage($"list.Capacity = {list.Capacity}");
+        // }
+
         switch(type)
         {
             case ItemStorageData.StorageType.KEY_ITEM:
