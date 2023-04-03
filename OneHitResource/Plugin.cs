@@ -4,8 +4,9 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using BepInEx;
-using BepInEx.Core.Logging.Interpolation;
 using BepInEx.Logging;
+using BepInEx.Configuration;
+using BepInEx.Core.Logging.Interpolation;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using HarmonyLib.Tools;
@@ -19,12 +20,15 @@ public class Plugin : BasePlugin
 {
     public static ManualLogSource Logger;
     public static MethodInfo original;
-    
+    public static ConfigEntry<int> cardProbability;
+
     public override void Load()
     {
         Plugin.Logger = base.Log;
         HarmonyFileLog.Enabled = true;
-            
+
+        Plugin.cardProbability = base.Config.Bind<int>("Card Drop Chance", "probability", 10, "Percent chance of a card dropping from resource node per material pull.");
+
         // Plugin startup logic
         Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
         this.Awake();
@@ -63,7 +67,6 @@ public static class Patch_PickItem
 [HarmonyPatch(typeof(uItemPickPanel), "PickMaterial")]
 public static class Patch_PickMaterial
 {
-    public static int cardProbability = 10;
     public static List<int> acquiredDigimonCards = new List<int>();
     public static void Postfix(uItemPickPanel __instance)
     {
@@ -81,7 +84,7 @@ public static class Patch_PickMaterial
         int remainderPickCount = ItemPickPointManager.Ref.GetMaterialPickPoint(ItemPickPointManager.Ref.PickingPoint.id).remainderPickCount;
         if (!StorageData.m_digimonCardFlag.IsAllGetFlag()) {
             for (int i = 0; i < remainderPickCount; i++) {
-                if (UnityEngine.Random.Range(0, 100) <= cardProbability) {
+                if (UnityEngine.Random.Range(0, 100) <= Plugin.cardProbability.Value) {
                     if (list.Count > 0)
                     {
                         int index = UnityEngine.Random.Range(0, list.Count);
