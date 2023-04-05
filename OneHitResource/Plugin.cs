@@ -19,8 +19,9 @@ namespace OneHitResource;
 public class Plugin : BasePlugin
 {
     public static ManualLogSource Logger;
-    public static MethodInfo original;
+    public static MethodInfo unpatched_PickItem;
     public static ConfigEntry<int> cardProbability;
+    public static ConfigEntry<bool> breakNodeFullInventory;
 
     public override void Load()
     {
@@ -28,6 +29,7 @@ public class Plugin : BasePlugin
         HarmonyFileLog.Enabled = true;
 
         Plugin.cardProbability = base.Config.Bind<int>("Card Drop Chance", "probability", 10, "Percent chance of a card dropping from resource node per material pull.");
+        Plugin.breakNodeFullInventory = base.Config.Bind<bool>("Break Material Node Toggle", "breakNodeFullInventory", false, "Run card chance and break material node even when inventory is full.");
 
         // Plugin startup logic
         Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
@@ -38,7 +40,7 @@ public class Plugin : BasePlugin
     {
         Harmony harmony = new Harmony("OneHitResource");
         var _original = AccessTools.Method(typeof(ItemPickPointTimeRebirth), "PickItem");
-        original = harmony.Patch(_original);
+        unpatched_PickItem = harmony.Patch(_original);
         harmony.PatchAll();
     }
 }
@@ -54,7 +56,7 @@ public static class Patch_PickItem
         List<UInt32> materials = new List<UInt32>();
         int remainderPickCount = __instance.remainderPickCount;
         for (int i = 0; i < remainderPickCount; i++) {
-            dynamic part = Plugin.original.Invoke(__instance, new object[] { __instance, requestPickCount, rarityRevision });
+            dynamic part = Plugin.unpatched_PickItem.Invoke(__instance, new object[] { __instance, requestPickCount, rarityRevision });
             foreach (var item in part) {
                 materials.Add(item);
             }
@@ -68,39 +70,57 @@ public static class Patch_PickItem
 public static class Patch_PickMaterial
 {
     public static List<int> acquiredDigimonCards = new List<int>();
+    public static bool inventoryFull = false;
+    public static bool Prefix()
+    {
+        dynamic itemStorageData = Traverse.Create(new StorageData()).Property("m_ItemStorageData").GetValue();
+        Patch_PickMaterial.inventoryFull = itemStorageData.GetEmptyNum(ItemStorageData.StorageType.MATERIAL) <= 0;
+
+        return true;
+    }
     public static void Postfix(uItemPickPanel __instance)
     {
-        dynamic params2 = Traverse.Create(AppMainScript.parameterManager.digimonCardData).Property("m_params").GetValue();
-        List<int> list = new List<int>();
-        foreach (ParameterDigimonCardData parameterDigimonCardData in params2)
-        {
-            int cardNum = (int)Traverse.Create(parameterDigimonCardData).Property("m_number").GetValue();
-            if (!StorageData.m_digimonCardFlag.IsGetFlag((uint)cardNum))
-            {
-                list.Add(cardNum);
-            }
-        }
+        ItemPickPointTimeRebirth materialPickPoint = (ItemPickPointTimeRebirth)ItemPickPointManager.Ref.GetMaterialPickPoint(ItemPickPointManager.Ref.PickingPoint.id);
+        int remainderPickCount = materialPickPoint.remainderPickCount;
 
-        int remainderPickCount = ItemPickPointManager.Ref.GetMaterialPickPoint(ItemPickPointManager.Ref.PickingPoint.id).remainderPickCount;
-        if (!StorageData.m_digimonCardFlag.IsAllGetFlag()) {
-            for (int i = 0; i < remainderPickCount; i++) {
-                if (UnityEngine.Random.Range(0, 100) <= Plugin.cardProbability.Value) {
-                    if (list.Count > 0)
-                    {
-                        int index = UnityEngine.Random.Range(0, list.Count);
-                        int cardNum = list[index];
-                        if (StorageData.m_digimonCardFlag.SetFlag((uint)cardNum, true)) {
-                            acquiredDigimonCards.Add(cardNum);
-                            list.RemoveAt(index);
-                        }
-                        else {
-                            Traverse.Create(__instance).Property("m_digimonCardNumber").SetValue(0);
+        if (Plugin.breakNodeFullInventory.Value | !Patch_PickMaterial.inventoryFull) {
+            dynamic params2 = Traverse.Create(AppMainScript.parameterManager.digimonCardData).Property("m_params").GetValue();
+            List<int> list = new List<int>();
+            foreach (ParameterDigimonCardData parameterDigimonCardData in params2)
+            {
+                int cardNum = (int)Traverse.Create(parameterDigimonCardData).Property("m_number").GetValue();
+                if (!StorageData.m_digimonCardFlag.IsGetFlag((uint)cardNum))
+                {
+                    list.Add(cardNum);
+                }
+            }
+
+            if (!StorageData.m_digimonCardFlag.IsAllGetFlag()) {
+                for (int i = 0; i < remainderPickCount; i++) {
+                    if (UnityEngine.Random.Range(0, 100) <= Plugin.cardProbability.Value) {
+                        if (list.Count > 0)
+                        {
+                            int index = UnityEngine.Random.Range(0, list.Count);
+                            int cardNum = list[index];
+                            if (StorageData.m_digimonCardFlag.SetFlag((uint)cardNum, true)) {
+                                acquiredDigimonCards.Add(cardNum);
+                                list.RemoveAt(index);
+                            }
+                            else {
+                                Traverse.Create(__instance).Property("m_digimonCardNumber").SetValue(0);
+                            }
                         }
                     }
                 }
             }
+            acquiredDigimonCards.Sort();
         }
-        acquiredDigimonCards.Sort();
+
+        if (Plugin.breakNodeFullInventory.Value) {
+            for (int i = 0; i < remainderPickCount; i++) {
+                Plugin.unpatched_PickItem.Invoke(materialPickPoint, new object[] { materialPickPoint, 0, 0 });
+            }
+        }
     }
 }
 
