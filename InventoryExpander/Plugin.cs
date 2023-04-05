@@ -11,20 +11,22 @@ using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 namespace InventoryExpander;
 
-// TODO: See if you can figure out what is returned when this line is called by uItemPickPanel::PickMaterial
-//  - List<ItemData> itemListKindBit = StorageData.m_ItemStorageData.GetItemListKindBit(ItemStorageData.StorageType.MATERIAL, ParameterItemData.KindIndexBit.KindMaterialBit);
+// TODO: Attempt to call ItemStorageData::SaveItemListBase from Patch_PickMaterial::Postfix
         
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BasePlugin
 {
     public static ManualLogSource Logger;
+    public static StorageData StorageData;
     
     public override void Load()
     {
         Plugin.Logger = base.Log;
+        Plugin.StorageData = new StorageData();
+
         HarmonyFileLog.Enabled = true;
         Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
-            
+
         // // Plugin startup logic
         // Plugin.Logger.LogInfo($"ItemStorageData Methods");
         // foreach (var method in typeof(ItemStorageData).GetMethods()) {
@@ -108,6 +110,27 @@ public static class Patch_PickMaterial
     public static void Postfix() 
     {
         Plugin.Logger.LogMessage("[uItemPickPanel::Patch_PickMaterial::Postfix]");
+
+        dynamic m_itemPickPoint = ItemPickPointManager.Ref.PickingPoint;
+        dynamic m_itemIds = m_itemPickPoint.PickItem(10, 1.2f);
+        dynamic m_ItemStorageData = Traverse.Create(Plugin.StorageData).Property("m_ItemStorageData").GetValue();
+        dynamic m_itemList = m_ItemStorageData.GetItemListKindBit(ItemStorageData.StorageType.MATERIAL, ParameterItemData.KindIndexBit.KindMaterialBit);
+        
+        Plugin.Logger.LogMessage($"m_itemList.Count = {m_itemList.Count}");
+
+        for (int k = 0; k < m_itemIds.Length; k++)
+        {
+            ItemData item = new ItemData(m_itemIds[k], 1);
+            m_itemList.Add(item);
+        }
+        Plugin.Logger.LogMessage($"m_itemList.Count = {m_itemList.Count}");
+
+        Plugin.Logger.LogMessage($"{ItemStorageData.StorageType.MATERIAL}");
+        Plugin.Logger.LogMessage($"m_itemList.GetType() = {m_itemList.GetType()}");
+
+        m_ItemStorageData.SaveItemList(ItemStorageData.StorageType.MATERIAL, ref m_itemList);
+
+        Plugin.Logger.LogMessage($"m_itemList.Count = {m_itemList.Count}");
     }
 }
 
@@ -128,11 +151,6 @@ public static class Patch_GetTypeMaxNumRef
                 Plugin.Logger.LogMessage($"{sf.GetMethod()}@{sf.GetFileLineNumber()}");
             }
         }
-
-        // dynamic maxList = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
-        // foreach (var list in maxList) {
-        //     Plugin.Logger.LogMessage($"list.Capacity = {list.Capacity}");
-        // }
 
         switch(type)
         {
