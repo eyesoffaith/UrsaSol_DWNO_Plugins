@@ -21,5 +21,8 @@
     <Reference Include="Assembly-CSharp">
       <HintPath>lib/Assembly-CSharp.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>lib/UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>
