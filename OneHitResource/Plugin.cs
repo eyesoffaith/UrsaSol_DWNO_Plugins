@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using BepInEx;
 using BepInEx.Logging;
 using BepInEx.Configuration;
-using BepInEx.Core.Logging.Interpolation;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using HarmonyLib.Tools;

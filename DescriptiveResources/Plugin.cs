@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Reflection;
-using System.Collections.Generic;
 using BepInEx;
-using BepInEx.Core.Logging.Interpolation;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using HarmonyLib.Tools;
-using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine.UI;
 
 namespace DescriptiveResources;
@@ -52,7 +49,6 @@ public static class Patch_OpenMessageWindow
         ParameterMaterialPickPointData parameterMaterialPickPointData = (ParameterMaterialPickPointData)Traverse.Create(itemPickPointTimeRebirth).Property("m_parameterMaterialPickPointData").GetValue();
 
         if (parameterMaterialPickPointData is not null) {
-            // var parameterMaterialPickPointData_id = Traverse.Create(parameterMaterialPickPointData).Property("m_id").GetValue();
             var itemLength = parameterMaterialPickPointData.GetItemDataLength();
 
             string message = "";
