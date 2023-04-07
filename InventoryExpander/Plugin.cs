@@ -5,9 +5,12 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using HarmonyLib.Tools;
 using System;
+using System.IO;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 namespace InventoryExpander;
+
+// TODO: Fix materials over 200 not saving to save file
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BasePlugin
@@ -28,7 +31,93 @@ public class Plugin : BasePlugin
     public void Awake()
     {
         Harmony harmony = new Harmony("InventoryExpander");
+
+        dynamic method = AccessTools.Method(typeof(ItemStorageData), "WriteSaveData");
+        dynamic prefix = AccessTools.Method(typeof(Patch_WriteSaveData_ItemData), "Prefix");
+        dynamic postfix = AccessTools.Method(typeof(Patch_WriteSaveData_ItemData), "Postfix");
+        Plugin.Logger.LogMessage($"method = {method}");
+        Plugin.Logger.LogMessage($"prefix = {prefix}");
+        Plugin.Logger.LogMessage($"postfix = {postfix}");
+
+        harmony.Patch(method, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
+
         harmony.PatchAll();
+    }
+}
+
+class Patch_WriteSaveData_ItemData
+{
+    static bool Prefix()
+    {
+        Plugin.Logger.LogMessage("[ItemStorageData::Patch_WriteSaveData_ItemData::Prefix]");
+        return true;
+        // return false;
+    }
+
+    static void Postfix(ref BinaryWriter _writer, ref uint __result, ItemStorageData __instance)
+    {
+        Plugin.Logger.LogMessage("[ItemStorageData::Patch_WriteSaveData_ItemData::Postfix]");
+        Plugin.Logger.LogMessage($"_writer = {_writer}");
+        Plugin.Logger.LogMessage($"__result = {__result}");
+        Plugin.Logger.LogMessage($"__instance = {__instance}");
+
+        if (_writer == null)
+		{
+			__result = 0U;
+		}
+        else
+        {
+            dynamic baseStream = Traverse.Create(_writer).Property("BaseStream").GetValue();
+            long position = baseStream.Position;
+            Plugin.Logger.LogMessage($"position = {position}");
+
+            dynamic saveItemData = AccessTools.Method(typeof(ItemStorageData), "WriteSaveData_ItemData");
+            dynamic saveShopItemData = AccessTools.Method(typeof(ItemStorageData), "WriteSaveData_ShopItemData");
+
+            Plugin.Logger.LogMessage($"saveItemData = {saveItemData}");
+            Plugin.Logger.LogMessage($"saveShopItemData = {saveShopItemData}");
+
+            Plugin.Logger.LogMessage($"Attempting to save");
+
+            if (!(bool)saveItemData.Invoke(__instance, new object[] { _writer }))
+            {
+                __result = 0U;
+            }
+            else if (!(bool)saveShopItemData.Invoke(__instance, new object[] { _writer }))
+            {
+                __result = 0U;
+            }
+            else
+            {
+                __result = (uint)(position - _writer.BaseStream.Position);
+            }
+        }
+
+        // // if (__instance.m_itemDataListTbl == null) 
+        // // {
+		// // 	__result = false;
+		// // }
+        // // else 
+        // // {
+        // //     int num = __instance.m_itemDataListTbl.Length;
+        // //     for (int i = 0; i < num; i++)
+        // //     {
+        // //         dynamic list = __instance.m_itemDataListTbl[i];
+        // //         if (list != null)
+        // //         {
+        // //             // int num2 = (i == 2) ? 100 : list.Count;
+        // //             for (int j = 0; j < list.Count; j++)
+        // //             {
+        // //                 ItemData itemData = list[j];
+        // //                 if (itemData != null)
+        // //                 {
+        // //                     itemData.WriteSaveData(_writer);
+        // //                 }
+        // //             }
+        // //         }
+        // //     }
+        // //     __result = true;
+        // // }
     }
 }
 
