@@ -5,7 +5,6 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using HarmonyLib.Tools;
 using System;
-using System.IO;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 namespace InventoryExpander;
@@ -50,48 +49,65 @@ class Patch_WriteSaveData_ItemData
     static bool Prefix()
     {
         Plugin.Logger.LogMessage("[ItemStorageData::Patch_WriteSaveData_ItemData::Prefix]");
-        return true;
-        // return false;
+        // return true;
+        return false;
     }
 
-    static void Postfix(ref BinaryWriter _writer, ref uint __result, ItemStorageData __instance)
+    static void Postfix(ref dynamic _writer, ref uint __result, ItemStorageData __instance)
     {
         Plugin.Logger.LogMessage("[ItemStorageData::Patch_WriteSaveData_ItemData::Postfix]");
-        Plugin.Logger.LogMessage($"_writer = {_writer}");
-        Plugin.Logger.LogMessage($"__result = {__result}");
-        Plugin.Logger.LogMessage($"__instance = {__instance}");
+        __result = 1;
+        long position = 0;
 
-        if (_writer == null)
-		{
-			__result = 0U;
-		}
-        else
+        if (_writer != null)
         {
             dynamic baseStream = Traverse.Create(_writer).Property("BaseStream").GetValue();
-            long position = baseStream.Position;
+            position = baseStream.Position;
             Plugin.Logger.LogMessage($"position = {position}");
-
-            dynamic saveItemData = AccessTools.Method(typeof(ItemStorageData), "WriteSaveData_ItemData");
-            dynamic saveShopItemData = AccessTools.Method(typeof(ItemStorageData), "WriteSaveData_ShopItemData");
-
-            Plugin.Logger.LogMessage($"saveItemData = {saveItemData}");
-            Plugin.Logger.LogMessage($"saveShopItemData = {saveShopItemData}");
-
-            Plugin.Logger.LogMessage($"Attempting to save");
-
-            if (!(bool)saveItemData.Invoke(__instance, new object[] { _writer }))
-            {
-                __result = 0U;
-            }
-            else if (!(bool)saveShopItemData.Invoke(__instance, new object[] { _writer }))
-            {
-                __result = 0U;
-            }
-            else
-            {
-                __result = (uint)(position - _writer.BaseStream.Position);
-            }
         }
+        else 
+        {
+            __result = 0U;
+        }
+        
+        // dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        // if (__result != 0U && itemDataListTbl != null)
+        // {
+        //     for (int i = 0; i < itemDataListTbl.Count; i++)
+        //     {
+        //         if (itemDataListTbl[i] != null)
+        //         {
+        //             for (int j = 0; j < itemDataListTbl[i].Count; j++)
+        //             {
+        //                 dynamic itemData = itemDataListTbl[i][j];
+        //                 if (itemData != null)
+        //                 {
+        //                     itemData.WriteSaveData(_writer);
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+        // else
+        // {
+        //     __result = 0U;
+        // }
+
+        dynamic shopItemData = Traverse.Create(__instance).Property("m_shopItemData").GetValue();
+        Plugin.Logger.LogMessage($"shopItemData.GetType() = {shopItemData.GetType()}");
+
+        if (__result != 0U && shopItemData != null && shopItemData.WriteSaveData(__instance, ref _writer))
+        {
+            Plugin.Logger.LogMessage($"Attempting to save shop item data");
+            dynamic baseStream = Traverse.Create(_writer).Property("BaseStream").GetValue();
+            __result = (uint)(baseStream.Position - position);
+        }
+        else
+        {
+            __result = 0U;
+        }
+
+        Plugin.Logger.LogMessage($"__result = {__result}");
 
         // // if (__instance.m_itemDataListTbl == null) 
         // // {
