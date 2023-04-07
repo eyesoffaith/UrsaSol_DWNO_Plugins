@@ -10,6 +10,9 @@ using Il2CppInterop.Runtime.InteropTypes.Arrays;
 namespace InventoryExpander;
 
 // TODO: Fix materials over 200 not saving to save file
+//  - Not sure why but in ItemStorageData::WriteSaveData_ItemData the function iterates over the inventory ItemData lists and only for index 2 (i.e. MATERIAL) does it impose a limit to the loop besides the list.Count
+//  - As crazy of an idea as it would be, try temporarily inserting an empty list into position 2 of m_itemDataListTbl to bypass this limit. The function should skip the empty list and save the materials at position 3
+//      using list.Count
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BasePlugin
