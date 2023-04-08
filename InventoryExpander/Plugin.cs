@@ -1,10 +1,12 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 using BepInEx.Configuration;
 using HarmonyLib;
 using HarmonyLib.Tools;
 using System;
+using System.Collections.Generic;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 namespace InventoryExpander;
@@ -13,6 +15,7 @@ namespace InventoryExpander;
 //  - Not sure why but in ItemStorageData::WriteSaveData_ItemData the function iterates over the inventory ItemData lists and only for index 2 (i.e. MATERIAL) does it impose a limit to the loop besides the list.Count
 //  - As crazy of an idea as it would be, try temporarily inserting an empty list into position 2 of m_itemDataListTbl to bypass this limit. The function should skip the empty list and save the materials at position 3
 //      using list.Count
+//  - Having trouble padding with nulls since the data type is a variant of an array containing a variant of List. If I can rangle the object types, I think the process has a chance of working.
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BasePlugin
@@ -41,7 +44,8 @@ public class Plugin : BasePlugin
         Plugin.Logger.LogMessage($"prefix = {prefix}");
         Plugin.Logger.LogMessage($"postfix = {postfix}");
 
-        harmony.Patch(method, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
+        // harmony.Patch(method, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
+        harmony.Patch(method, prefix: new HarmonyMethod(prefix));
 
         harmony.PatchAll();
     }
@@ -49,11 +53,38 @@ public class Plugin : BasePlugin
 
 class Patch_WriteSaveData_ItemData
 {
-    static bool Prefix()
+    static bool Prefix(ItemStorageData __instance)
     {
         Plugin.Logger.LogMessage("[ItemStorageData::Patch_WriteSaveData_ItemData::Prefix]");
-        // return true;
-        return false;
+        
+        dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+
+        var a = new List<ItemData>[7];
+        a[0] = null;
+        a[1] = null;
+        a[2] = null;
+        a[3] = itemDataListTbl[0];
+        a[4] = itemDataListTbl[1];
+        a[5] = itemDataListTbl[2];
+        a[6] = itemDataListTbl[3];
+
+        var b = new Il2CppReferenceArray<List<ItemData>>(a);
+
+        Type arrayType = itemDataListTbl.GetType();
+        Type listType = itemDataListTbl[0].GetType();
+        Plugin.Logger.LogMessage($"arrayType = {arrayType}");
+        foreach (var method in arrayType.GetMethods()) {
+            Plugin.Logger.LogMessage($"{method}");
+        }
+        Plugin.Logger.LogMessage($"listType = {listType}");
+        foreach (var method in listType.GetMethods()) {
+            Plugin.Logger.LogMessage($"{method}");
+        }
+
+        for(int i = 0; i < 3; i++) {
+            itemDataListTbl.Insert(0, null);
+        }
+        return true;
     }
 
     static void Postfix(ref dynamic _writer, ref uint __result, ItemStorageData __instance)
