@@ -8,6 +8,7 @@ using HarmonyLib.Tools;
 using System;
 using System.Collections.Generic;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
+using Il2List = Il2CppSystem.Collections.Generic;
 
 namespace InventoryExpander;
 
@@ -58,8 +59,7 @@ class Patch_WriteSaveData_ItemData
         Plugin.Logger.LogMessage("[ItemStorageData::Patch_WriteSaveData_ItemData::Prefix]");
         
         dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
-
-        var a = new List<ItemData>[7];
+        var a = new Il2List.List<ItemData>[7];
         a[0] = null;
         a[1] = null;
         a[2] = null;
@@ -68,41 +68,59 @@ class Patch_WriteSaveData_ItemData
         a[5] = itemDataListTbl[2];
         a[6] = itemDataListTbl[3];
 
-        var b = new Il2CppReferenceArray<List<ItemData>>(a);
+        Plugin.Logger.LogMessage($"attempting to null pad");
+        var b = new Il2CppReferenceArray<Il2List.List<ItemData>>(a);
 
-        Type arrayType = itemDataListTbl.GetType();
-        Type listType = itemDataListTbl[0].GetType();
-        Plugin.Logger.LogMessage($"arrayType = {arrayType}");
-        foreach (var method in arrayType.GetMethods()) {
-            Plugin.Logger.LogMessage($"{method}");
-        }
-        Plugin.Logger.LogMessage($"listType = {listType}");
-        foreach (var method in listType.GetMethods()) {
-            Plugin.Logger.LogMessage($"{method}");
-        }
+        Plugin.Logger.LogMessage($"itemDataListTbl.GetType() = {itemDataListTbl.GetType()}");
+        Plugin.Logger.LogMessage($"b.GetType() = {b.GetType()}");
+        
 
-        for(int i = 0; i < 3; i++) {
-            itemDataListTbl.Insert(0, null);
-        }
+        Plugin.Logger.LogMessage($"saving padded list");
+        Traverse.Create(__instance).Property("m_itemDataListTbl").SetValue(b);
+        Plugin.Logger.LogMessage($"save complete");
+
+        // Type arrayType = itemDataListTbl.GetType();
+        // Type listType = itemDataListTbl[0].GetType();
+        // Plugin.Logger.LogMessage($"arrayType = {arrayType}");
+        // foreach (var method in arrayType.GetMethods()) {
+        //     Plugin.Logger.LogMessage($"{method}");
+        // }
+        // Plugin.Logger.LogMessage($"listType = {listType}");
+        // foreach (var method in listType.GetMethods()) {
+        //     Plugin.Logger.LogMessage($"{method}");
+        // }
+
+        // for(int i = 0; i < 3; i++) {
+        //     itemDataListTbl.Insert(0, null);
+        // }
         return true;
     }
 
     static void Postfix(ref dynamic _writer, ref uint __result, ItemStorageData __instance)
     {
         Plugin.Logger.LogMessage("[ItemStorageData::Patch_WriteSaveData_ItemData::Postfix]");
-        __result = 1;
-        long position = 0;
 
-        if (_writer != null)
-        {
-            dynamic baseStream = Traverse.Create(_writer).Property("BaseStream").GetValue();
-            position = baseStream.Position;
-            Plugin.Logger.LogMessage($"position = {position}");
-        }
-        else 
-        {
-            __result = 0U;
-        }
+        dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        var a = new Il2List.List<ItemData>[4];
+        a[0] = itemDataListTbl[0];
+        a[1] = itemDataListTbl[1];
+        a[2] = itemDataListTbl[2];
+        a[3] = itemDataListTbl[3];
+        Traverse.Create(__instance).Property("m_itemDataListTbl").SetValue(a);
+
+        // __result = 1;
+        // long position = 0;
+
+        // if (_writer != null)
+        // {
+        //     dynamic baseStream = Traverse.Create(_writer).Property("BaseStream").GetValue();
+        //     position = baseStream.Position;
+        //     Plugin.Logger.LogMessage($"position = {position}");
+        // }
+        // else 
+        // {
+        //     __result = 0U;
+        // }
         
         // dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
         // if (__result != 0U && itemDataListTbl != null)
@@ -127,21 +145,21 @@ class Patch_WriteSaveData_ItemData
         //     __result = 0U;
         // }
 
-        dynamic shopItemData = Traverse.Create(__instance).Property("m_shopItemData").GetValue();
-        Plugin.Logger.LogMessage($"shopItemData.GetType() = {shopItemData.GetType()}");
+        // dynamic shopItemData = Traverse.Create(__instance).Property("m_shopItemData").GetValue();
+        // Plugin.Logger.LogMessage($"shopItemData.GetType() = {shopItemData.GetType()}");
 
-        if (__result != 0U && shopItemData != null && shopItemData.WriteSaveData(__instance, ref _writer))
-        {
-            Plugin.Logger.LogMessage($"Attempting to save shop item data");
-            dynamic baseStream = Traverse.Create(_writer).Property("BaseStream").GetValue();
-            __result = (uint)(baseStream.Position - position);
-        }
-        else
-        {
-            __result = 0U;
-        }
+        // if (__result != 0U && shopItemData != null && shopItemData.WriteSaveData(__instance, ref _writer))
+        // {
+        //     Plugin.Logger.LogMessage($"Attempting to save shop item data");
+        //     dynamic baseStream = Traverse.Create(_writer).Property("BaseStream").GetValue();
+        //     __result = (uint)(baseStream.Position - position);
+        // }
+        // else
+        // {
+        //     __result = 0U;
+        // }
 
-        Plugin.Logger.LogMessage($"__result = {__result}");
+        // Plugin.Logger.LogMessage($"__result = {__result}");
 
         // // if (__instance.m_itemDataListTbl == null) 
         // // {

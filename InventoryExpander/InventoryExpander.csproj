@@ -24,5 +24,8 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>lib/UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>lib/Il2Cppmscorlib.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>
