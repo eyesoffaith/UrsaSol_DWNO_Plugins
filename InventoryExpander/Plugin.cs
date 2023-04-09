@@ -8,7 +8,7 @@ using HarmonyLib.Tools;
 using System;
 using System.Collections.Generic;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
-using Il2List = Il2CppSystem.Collections.Generic;
+using Il2 = Il2CppSystem.Collections.Generic;
 
 namespace InventoryExpander;
 
@@ -17,6 +17,8 @@ namespace InventoryExpander;
 //  - As crazy of an idea as it would be, try temporarily inserting an empty list into position 2 of m_itemDataListTbl to bypass this limit. The function should skip the empty list and save the materials at position 3
 //      using list.Count
 //  - Having trouble padding with nulls since the data type is a variant of an array containing a variant of List. If I can rangle the object types, I think the process has a chance of working.
+//  - Managed to rangle object types and null pad the list to hopefully avoid the loop limit defined. However, it seems the problem still persists. Saving and Loading doesn't error out but
+//      it looks like the game is confused on how to properly store and reload the data, resulting in a loaded game but inventory, digimon info, and digimail all blank
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BasePlugin
@@ -37,155 +39,134 @@ public class Plugin : BasePlugin
     public void Awake()
     {
         Harmony harmony = new Harmony("InventoryExpander");
-
-        dynamic method = AccessTools.Method(typeof(ItemStorageData), "WriteSaveData");
-        dynamic prefix = AccessTools.Method(typeof(Patch_WriteSaveData_ItemData), "Prefix");
-        dynamic postfix = AccessTools.Method(typeof(Patch_WriteSaveData_ItemData), "Postfix");
-        Plugin.Logger.LogMessage($"method = {method}");
-        Plugin.Logger.LogMessage($"prefix = {prefix}");
-        Plugin.Logger.LogMessage($"postfix = {postfix}");
-
-        // harmony.Patch(method, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
-        harmony.Patch(method, prefix: new HarmonyMethod(prefix));
-
         harmony.PatchAll();
     }
 }
 
-class Patch_WriteSaveData_ItemData
+[HarmonyPatch(typeof(ItemStorageData), "ReadSaveData")]
+class Patch_ReadSaveData
 {
-    static bool Prefix(ItemStorageData __instance)
+    public static bool Prefix(ItemStorageData __instance)
     {
-        Plugin.Logger.LogMessage("[ItemStorageData::Patch_WriteSaveData_ItemData::Prefix]");
-        
+        Plugin.Logger.LogMessage("[ItemStorageData::Patch_ReadSaveData::Prefix]");
+
         dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
-        var a = new Il2List.List<ItemData>[7];
-        a[0] = null;
-        a[1] = null;
-        a[2] = null;
-        a[3] = itemDataListTbl[0];
-        a[4] = itemDataListTbl[1];
-        a[5] = itemDataListTbl[2];
-        a[6] = itemDataListTbl[3];
+        Plugin.Logger.LogMessage($"itemDataListTbl.Count = {itemDataListTbl.Count}");
+        foreach (Il2.List<ItemData> list in itemDataListTbl) {
+            if (list == null) {
+                Plugin.Logger.LogMessage($"list is null");
+            } else {
+                Plugin.Logger.LogMessage($"list.Count = {list.Count}");
+            }
+        }
 
-        Plugin.Logger.LogMessage($"attempting to null pad");
-        var b = new Il2CppReferenceArray<Il2List.List<ItemData>>(a);
-
-        Plugin.Logger.LogMessage($"itemDataListTbl.GetType() = {itemDataListTbl.GetType()}");
-        Plugin.Logger.LogMessage($"b.GetType() = {b.GetType()}");
-        
-
-        Plugin.Logger.LogMessage($"saving padded list");
+        var a = new Il2.List<ItemData>[] {null, null, null, null, null, null, null, null, null, null, itemDataListTbl[0], itemDataListTbl[1], itemDataListTbl[2], itemDataListTbl[3]};
+        var b = new Il2CppReferenceArray<Il2.List<ItemData>>(a);
         Traverse.Create(__instance).Property("m_itemDataListTbl").SetValue(b);
-        Plugin.Logger.LogMessage($"save complete");
 
-        // Type arrayType = itemDataListTbl.GetType();
-        // Type listType = itemDataListTbl[0].GetType();
-        // Plugin.Logger.LogMessage($"arrayType = {arrayType}");
-        // foreach (var method in arrayType.GetMethods()) {
-        //     Plugin.Logger.LogMessage($"{method}");
-        // }
-        // Plugin.Logger.LogMessage($"listType = {listType}");
-        // foreach (var method in listType.GetMethods()) {
-        //     Plugin.Logger.LogMessage($"{method}");
-        // }
+        itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        Plugin.Logger.LogMessage($"itemDataListTbl.Count = {itemDataListTbl.Count}");
+        foreach (Il2.List<ItemData> list in itemDataListTbl) {
+            if (list == null) {
+                Plugin.Logger.LogMessage($"list is null");
+            } else {
+                Plugin.Logger.LogMessage($"list.Count = {list.Count}");
+            }
+        }
 
-        // for(int i = 0; i < 3; i++) {
-        //     itemDataListTbl.Insert(0, null);
-        // }
         return true;
     }
 
-    static void Postfix(ref dynamic _writer, ref uint __result, ItemStorageData __instance)
+    public static void Postfix(ItemStorageData __instance)
     {
-        Plugin.Logger.LogMessage("[ItemStorageData::Patch_WriteSaveData_ItemData::Postfix]");
+        Plugin.Logger.LogMessage("[ItemStorageData::Patch_ReadSaveData::Postfix]");
+        dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        foreach (Il2.List<ItemData> list in itemDataListTbl) {
+            if (list == null) {
+                Plugin.Logger.LogMessage($"list is null");
+            } else {
+                Plugin.Logger.LogMessage($"list.Count = {list.Count}");
+            }
+        }
+
+        Plugin.Logger.LogMessage($"itemDataListTbl.Count = {itemDataListTbl.Count}");
+        var a = new Il2.List<ItemData>[4] {itemDataListTbl[10], itemDataListTbl[11], itemDataListTbl[12], itemDataListTbl[13]};
+        var b = new Il2CppReferenceArray<Il2.List<ItemData>>(a);
+        Traverse.Create(__instance).Property("m_itemDataListTbl").SetValue(b);
+
+        itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        Plugin.Logger.LogMessage($"itemDataListTbl.Count = {itemDataListTbl.Count}");
+        foreach (Il2.List<ItemData> list in itemDataListTbl) {
+            if (list == null) {
+                Plugin.Logger.LogMessage($"list is null");
+            } else {
+                Plugin.Logger.LogMessage($"list.Count = {list.Count}");
+            }
+        }
+    }
+}
+
+[HarmonyPatch(typeof(ItemStorageData), "WriteSaveData")]
+class Patch_WriteSaveData
+{
+    public static bool Prefix(ItemStorageData __instance)
+    {
+        Plugin.Logger.LogMessage("[ItemStorageData::WriteSaveData::Prefix]");
+        
+        dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        Plugin.Logger.LogMessage($"itemDataListTbl.Count = {itemDataListTbl.Count}");
+        foreach (Il2.List<ItemData> list in itemDataListTbl) {
+            if (list == null) {
+                Plugin.Logger.LogMessage($"list is null");
+            } else {
+                Plugin.Logger.LogMessage($"list.Count = {list.Count}");
+            }
+        }
+
+        var a = new Il2.List<ItemData>[] {null, null, null, null, null, null, null, null, null, null, itemDataListTbl[0], itemDataListTbl[1], itemDataListTbl[2], itemDataListTbl[3]};
+        var b = new Il2CppReferenceArray<Il2.List<ItemData>>(a);
+        Traverse.Create(__instance).Property("m_itemDataListTbl").SetValue(b);
+
+        itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        Plugin.Logger.LogMessage($"itemDataListTbl.Count = {itemDataListTbl.Count}");
+        foreach (Il2.List<ItemData> list in itemDataListTbl) {
+            if (list == null) {
+                Plugin.Logger.LogMessage($"list is null");
+            } else {
+                Plugin.Logger.LogMessage($"list.Count = {list.Count}");
+            }
+        }
+
+        return true;
+    }
+
+    public static void Postfix(ItemStorageData __instance)
+    {
+        Plugin.Logger.LogMessage("[ItemStorageData::WriteSaveData::Postfix]");
 
         dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
-        var a = new Il2List.List<ItemData>[4];
-        a[0] = itemDataListTbl[0];
-        a[1] = itemDataListTbl[1];
-        a[2] = itemDataListTbl[2];
-        a[3] = itemDataListTbl[3];
-        Traverse.Create(__instance).Property("m_itemDataListTbl").SetValue(a);
+        Plugin.Logger.LogMessage($"itemDataListTbl.Count = {itemDataListTbl.Count}");
+        foreach (Il2.List<ItemData> list in itemDataListTbl) {
+            if (list == null) {
+                Plugin.Logger.LogMessage($"list is null");
+            } else {
+                Plugin.Logger.LogMessage($"list.Count = {list.Count}");
+            }
+        }
 
-        // __result = 1;
-        // long position = 0;
+        var a = new Il2.List<ItemData>[4] {itemDataListTbl[10], itemDataListTbl[11], itemDataListTbl[12], itemDataListTbl[13]};
+        var b = new Il2CppReferenceArray<Il2.List<ItemData>>(a);
+        Traverse.Create(__instance).Property("m_itemDataListTbl").SetValue(b);
 
-        // if (_writer != null)
-        // {
-        //     dynamic baseStream = Traverse.Create(_writer).Property("BaseStream").GetValue();
-        //     position = baseStream.Position;
-        //     Plugin.Logger.LogMessage($"position = {position}");
-        // }
-        // else 
-        // {
-        //     __result = 0U;
-        // }
-        
-        // dynamic itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
-        // if (__result != 0U && itemDataListTbl != null)
-        // {
-        //     for (int i = 0; i < itemDataListTbl.Count; i++)
-        //     {
-        //         if (itemDataListTbl[i] != null)
-        //         {
-        //             for (int j = 0; j < itemDataListTbl[i].Count; j++)
-        //             {
-        //                 dynamic itemData = itemDataListTbl[i][j];
-        //                 if (itemData != null)
-        //                 {
-        //                     itemData.WriteSaveData(_writer);
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-        // else
-        // {
-        //     __result = 0U;
-        // }
-
-        // dynamic shopItemData = Traverse.Create(__instance).Property("m_shopItemData").GetValue();
-        // Plugin.Logger.LogMessage($"shopItemData.GetType() = {shopItemData.GetType()}");
-
-        // if (__result != 0U && shopItemData != null && shopItemData.WriteSaveData(__instance, ref _writer))
-        // {
-        //     Plugin.Logger.LogMessage($"Attempting to save shop item data");
-        //     dynamic baseStream = Traverse.Create(_writer).Property("BaseStream").GetValue();
-        //     __result = (uint)(baseStream.Position - position);
-        // }
-        // else
-        // {
-        //     __result = 0U;
-        // }
-
-        // Plugin.Logger.LogMessage($"__result = {__result}");
-
-        // // if (__instance.m_itemDataListTbl == null) 
-        // // {
-		// // 	__result = false;
-		// // }
-        // // else 
-        // // {
-        // //     int num = __instance.m_itemDataListTbl.Length;
-        // //     for (int i = 0; i < num; i++)
-        // //     {
-        // //         dynamic list = __instance.m_itemDataListTbl[i];
-        // //         if (list != null)
-        // //         {
-        // //             // int num2 = (i == 2) ? 100 : list.Count;
-        // //             for (int j = 0; j < list.Count; j++)
-        // //             {
-        // //                 ItemData itemData = list[j];
-        // //                 if (itemData != null)
-        // //                 {
-        // //                     itemData.WriteSaveData(_writer);
-        // //                 }
-        // //             }
-        // //         }
-        // //     }
-        // //     __result = true;
-        // // }
+        itemDataListTbl = Traverse.Create(__instance).Property("m_itemDataListTbl").GetValue();
+        Plugin.Logger.LogMessage($"itemDataListTbl.Count = {itemDataListTbl.Count}");
+        foreach (Il2.List<ItemData> list in itemDataListTbl) {
+            if (list == null) {
+                Plugin.Logger.LogMessage($"list is null");
+            } else {
+                Plugin.Logger.LogMessage($"list.Count = {list.Count}");
+            }
+        }
     }
 }
 
