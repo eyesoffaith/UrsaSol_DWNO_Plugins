@@ -89,7 +89,7 @@ public static class Patch_PickMaterial
     public static void Postfix(uItemPickPanel __instance)
     {
         ItemPickPointTimeRebirth materialPickPoint = (ItemPickPointTimeRebirth)ItemPickPointManager.Ref.GetMaterialPickPoint(ItemPickPointManager.Ref.PickingPoint.id);
-        int remainderPickCount = materialPickPoint.remainderPickCount;
+        int remainderPickCount = Plugin.oneHitNode.Value ? materialPickPoint.remainderPickCount : 1;
 
         if (Plugin.breakNodeFullInventory.Value | !Patch_PickMaterial.inventoryFull) {
             dynamic params2 = Traverse.Create(AppMainScript.parameterManager.digimonCardData).Property("m_params").GetValue();
