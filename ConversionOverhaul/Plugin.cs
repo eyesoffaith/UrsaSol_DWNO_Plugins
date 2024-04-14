@@ -23,13 +23,12 @@ namespace ConversionOverhaul;
 public class Plugin : BasePlugin
 {
     public static ManualLogSource Logger;
-    public static MethodInfo unpatched_PickItem;
     
-    public static ConfigEntry<float> resourceRarity;
-    public static ConfigEntry<float> resourceMultiplier;
-    public static ConfigEntry<int> cardProbability;
-    public static ConfigEntry<bool> breakNodeFullInventory;
-    public static ConfigEntry<bool> oneHitNode;
+    // public static ConfigEntry<float> resourceRarity;
+    // public static ConfigEntry<float> resourceMultiplier;
+    // public static ConfigEntry<int> cardProbability;
+    // public static ConfigEntry<bool> breakNodeFullInventory;
+    // public static ConfigEntry<bool> oneHitNode;
 
     public override void Load()
     {
@@ -49,31 +48,52 @@ public class Plugin : BasePlugin
 
     public void Awake()
     {
-        Harmony harmony = new Harmony("OneHitResource");
-        var _original = AccessTools.Method(typeof(ItemPickPointTimeRebirth), "PickItem");
-        unpatched_PickItem = harmony.Patch(_original);
+        Harmony harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
         harmony.PatchAll();
     }
 }
 
-[HarmonyPatch(typeof(ItemPickPointTimeRebirth), "PickItem")]
-public static class Patch_PickItem
-{
-    public static bool Prefix() {
-        return !Plugin.oneHitNode.Value;
-    }
+/*
+MaterialChange01 = Gostumon (metal)
+MaterialChange02 = Gostumon (stone)
+MaterialChange03 = Tyrannomon (wood)
+AdventureInfo = Tyrannomon (liquid)
+window_type _03 = Gaurdromon (lab item creation)
+LaboratoryItemChange01 = Zudomon (liquid/stone hunt)
+LaboratoryItemChange02 = Haguromon (metal/wood hunt)
+*/
 
-    public static void Postfix(int requestPickCount, float rarityRevision, ref dynamic __result, ItemPickPointTimeRebirth __instance) {
-        if (Plugin.oneHitNode.Value) {
-            List<UInt32> materials = new List<UInt32>();
-            int remainderPickCount = __instance.remainderPickCount;
-            for (int i = 0; i < remainderPickCount; i++) {
-                dynamic part = Plugin.unpatched_PickItem.Invoke(__instance, new object[] { __instance, (int)(Plugin.resourceMultiplier.Value * requestPickCount), (int)(Plugin.resourceRarity.Value * rarityRevision) });
-                foreach (var item in part) {
-                    materials.Add(item);
-                }
-            }
-            __result = new Il2CppStructArray<UInt32>(materials.ToArray());
-        }
+[HarmonyPatch(typeof(MainGameManager), "enableCommonSelectWindowUI")]
+public static class Patch_MainGameManager_enableCommonSelectWindowUI
+{
+    public static void Postfix(bool enable, ParameterCommonSelectWindowMode.WindowType window_type, MainGameManager __instance) {
+        Plugin.Logger.LogInfo($"MainGameManager::enableCommonSelectWindowUI");
+        Plugin.Logger.LogInfo($"enable {enable}");
+        Plugin.Logger.LogInfo($"window_type {window_type}");
+    }
+}
+
+[HarmonyPatch(typeof(ParameterCommonSelectWindowMode), "GetParam")]
+[HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindowMode.WindowType) })]
+public static class Patch_ParameterCommonSelectWindowMode_GetParam
+{
+    public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, ref dynamic __result, ParameterCommonSelectWindowMode __instance) {
+        Plugin.Logger.LogInfo($"ParameterCommonSelectWindowMode::GetParam");
+        Plugin.Logger.LogInfo($"window_type {window_type}");
+        Plugin.Logger.LogInfo($"__result {__result}");
+        Plugin.Logger.LogInfo($"__instance {__instance}");
+    }
+}
+
+[HarmonyPatch(typeof(ParameterCommonSelectWindow), "GetParam")]
+[HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindowMode.WindowType), typeof(int) })]
+public static class Patch_ParameterCommonSelectWindow_GetParam
+{
+    public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, int record_index, ref dynamic __result, ParameterCommonSelectWindow __instance) {
+        Plugin.Logger.LogInfo($"ParameterCommonSelectWindow::GetParam");
+        Plugin.Logger.LogInfo($"window_type {window_type}");
+        Plugin.Logger.LogInfo($"record_index {record_index}");
+        Plugin.Logger.LogInfo($"__result {__result}");
+        Plugin.Logger.LogInfo($"__instance {__instance}");
     }
 }
