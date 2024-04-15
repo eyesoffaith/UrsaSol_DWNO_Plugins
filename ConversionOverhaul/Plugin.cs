@@ -46,17 +46,12 @@ LaboratoryItemChange01 = Zudomon (liquid/stone hunt)
 LaboratoryItemChange02 = Haguromon (metal/wood hunt)
 */
 
-[HarmonyPatch(typeof(MainGameManager), "enableCommonSelectWindowUI")]
-public static class Patch_MainGameManager_enableCommonSelectWindowUI
-{
-    public static void Postfix(bool enable, ParameterCommonSelectWindowMode.WindowType window_type, MainGameManager __instance) {
-        Plugin.Logger.LogInfo($"MainGameManager::enableCommonSelectWindowUI");
-        Plugin.Logger.LogInfo($"enable {enable}");
-        Plugin.Logger.LogInfo($"window_type {window_type}");
-    }
-}
+/*
+Transmission = Birdramon
+*/
 
 // TODO: Investigate this method further. This was the one that triggered during investigation!
+//  * are there any differences between patching static and non-static methods
 [HarmonyPatch(typeof(ParameterCommonSelectWindowMode), "GetParam")]
 [HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindowMode.WindowType) })]
 public static class Patch_ParameterCommonSelectWindowMode_GetParam
@@ -73,8 +68,8 @@ public static class Patch_ParameterCommonSelectWindowMode_GetParam
 [HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindowMode.WindowType), typeof(int) })]
 public static class Patch_ParameterCommonSelectWindow_GetParam
 {
-    public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, int record_index, ref dynamic __result, ParameterCommonSelectWindow __instance) {
-        Plugin.Logger.LogInfo($"ParameterCommonSelectWindow::GetParam");
+    public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, int record_index, ref dynamic __result, ParameterCommonSelectWindowMode __instance) {
+        Plugin.Logger.LogInfo($"ParameterCommonSelectWindowMode::GetParam");
         Plugin.Logger.LogInfo($"window_type {window_type}");
         Plugin.Logger.LogInfo($"record_index {record_index}");
         Plugin.Logger.LogInfo($"__result {__result}");
