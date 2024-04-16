@@ -57,31 +57,45 @@ public static class Patch_ParameterCommonSelectWindowMode_GetParam
 {
     public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, ref dynamic __result) {
         Plugin.Logger.LogInfo($"ParameterCommonSelectWindowMode::GetParam");
-        Plugin.Logger.LogInfo($"window_type {window_type}");
-        Plugin.Logger.LogInfo($"__result {__result}");
-        Plugin.Logger.LogInfo($"m_type {__result.m_type}");
-        Plugin.Logger.LogInfo($"m_blockIndex {__result.m_blockIndex}");
-        Plugin.Logger.LogInfo($"m_bit {__result.m_bit}");
-        Plugin.Logger.LogInfo($"m_dailyQusetPoint {__result.m_dailyQusetPoint}");
-        Plugin.Logger.LogInfo($"m_coin {__result.m_coin}");
+        // Plugin.Logger.LogInfo($"window_type {window_type}");
+        // Plugin.Logger.LogInfo($"__result {__result}");
+        // Plugin.Logger.LogInfo($"m_type {__result.m_type}");
+        // Plugin.Logger.LogInfo($"m_blockIndex {__result.m_blockIndex}");
+        // Plugin.Logger.LogInfo($"m_bit {__result.m_bit}");
+        // Plugin.Logger.LogInfo($"m_dailyQusetPoint {__result.m_dailyQusetPoint}");
+        // Plugin.Logger.LogInfo($"m_coin {__result.m_coin}");
     }
 }
 
-[HarmonyPatch(typeof(ParameterCommonSelectWindowMode), "GetCommonSelectWindowCsvb")]
-public static class Patch_ParameterCommonSelectWindowMode_GetCommonSelectWindowCsvb
+[HarmonyPatch(typeof(uCommonSelectWindowPanel), "Setup")]
+[HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindowMode.WindowType) }, new ArgumentType[] { ArgumentType.Ref } )]
+public static class Patch_uCommonSelectWindowPanel_Setup
 {
-    public static void Postfix(ref dynamic __result, ParameterCommonSelectWindow __instance) {
-        Plugin.Logger.LogInfo($"ParameterCommonSelectWindowMode::GetParam");
-        Plugin.Logger.LogInfo($"__result {__result}");
-        Plugin.Logger.LogInfo($"__instance {__instance}");
+    public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, uCommonSelectWindowPanel __instance) {
+        Plugin.Logger.LogInfo($"uCommonSelectWindowPanel::Setup");
+        // Plugin.Logger.LogInfo($"window_type {window_type}");
+        // Plugin.Logger.LogInfo($"__instance {__instance}");
 
-        Plugin.Logger.LogInfo($"METHODS");
-        foreach (var info in __result.GetType().GetMethods()) {
-            Plugin.Logger.LogInfo(info);
-        }
-        Plugin.Logger.LogInfo($"PROPERTIES");
-        foreach (var info in __result.GetType().GetProperties()) {
-            Plugin.Logger.LogInfo(info);
+        dynamic m_itemPanel = Traverse.Create(__instance).Property("m_itemPanel").GetValue();
+        Plugin.Logger.LogInfo($"m_itemPanel {m_itemPanel}");
+
+        TownMaterialDataAccess m_materialData = (TownMaterialDataAccess)Traverse.Create(typeof(StorageData)).Property("m_materialData").GetValue();
+        dynamic materialList = Traverse.Create(m_materialData).Property("m_materialDatas").GetValue();
+        foreach (var material in materialList) {
+            Plugin.Logger.LogInfo($"{material.m_id} {material.m_material_num}");
         }
     }
 }
+
+// [HarmonyPatch(typeof(uCommonSelectWindowPanel), "Update")]
+// public static class Patch_uCommonSelectWindowPanel_Update
+// {
+//     public static void Postfix(uCommonSelectWindowPanel __instance) {
+//         Plugin.Logger.LogInfo($"uCommonSelectWindowPanel::Update");
+//         // Plugin.Logger.LogInfo($"window_type {window_type}");
+//         // Plugin.Logger.LogInfo($"__instance {__instance}");
+
+//         dynamic m_itemPanel = Traverse.Create(__instance).Property("m_itemPanel").GetValue();
+//         Plugin.Logger.LogInfo($"m_itemPanel {m_itemPanel}");
+//     }
+// }
