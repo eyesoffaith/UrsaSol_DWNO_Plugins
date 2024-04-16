@@ -12,6 +12,13 @@ using HarmonyLib.Tools;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine.UI;
 
+// NOTES:
+//   - Got town material inventory
+//   - Got player item inventory (needs refinement)
+// TODO: Check out CScenarioScript class and it's CallCmdBlockCommonSelectWindow() method
+//   - Need to detect what "conversion" option a player is hovering override
+//   - Need detect when a selection is "selected" and will grant the converted rewards
+
 namespace ConversionOverhaul;
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
@@ -50,7 +57,6 @@ LaboratoryItemChange02 = Haguromon (metal/wood hunt)
 Transmission = Birdramon
 */
 
-// TODO: Check out CScenarioScript class and it's CallCmdBlockCommonSelectWindow() method
 [HarmonyPatch(typeof(ParameterCommonSelectWindowMode), "GetParam")]
 [HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindowMode.WindowType) })]
 public static class Patch_ParameterCommonSelectWindowMode_GetParam
@@ -81,8 +87,20 @@ public static class Patch_uCommonSelectWindowPanel_Setup
 
         TownMaterialDataAccess m_materialData = (TownMaterialDataAccess)Traverse.Create(typeof(StorageData)).Property("m_materialData").GetValue();
         dynamic materialList = Traverse.Create(m_materialData).Property("m_materialDatas").GetValue();
+        Plugin.Logger.LogInfo($"TOWN MATERIAL ITEMS");
         foreach (var material in materialList) {
-            Plugin.Logger.LogInfo($"{material.m_id} {material.m_material_num}");
+            Plugin.Logger.LogInfo($"{Language.GetString(material.m_id)} [{material.m_id}] {material.m_material_num}");
+        }
+
+        ItemStorageData m_ItemStorageData = (ItemStorageData)Traverse.Create(typeof(StorageData)).Property("m_ItemStorageData").GetValue();
+        Plugin.Logger.LogInfo($"PLAYER ITEMS");
+        Plugin.Logger.LogInfo($"m_ItemStorageData {m_ItemStorageData}");
+        dynamic m_itemDataListTbl = Traverse.Create(m_ItemStorageData).Property("m_itemDataListTbl").GetValue();
+        foreach (var itemList in m_itemDataListTbl) {
+            foreach (var item in itemList.ToArray()) {
+                if (item.m_itemNum == 0) { continue; }
+                Plugin.Logger.LogInfo($"{Language.GetString(item.m_itemID)} [{item.m_itemID}] {item.m_itemNum}");
+            }
         }
     }
 }
