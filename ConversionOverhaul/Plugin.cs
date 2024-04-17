@@ -87,33 +87,38 @@ public static class Patch_uCommonSelectWindowPanel_Setup
 
         TownMaterialDataAccess m_materialData = (TownMaterialDataAccess)Traverse.Create(typeof(StorageData)).Property("m_materialData").GetValue();
         dynamic materialList = Traverse.Create(m_materialData).Property("m_materialDatas").GetValue();
-        Plugin.Logger.LogInfo($"TOWN MATERIAL ITEMS");
-        foreach (var material in materialList) {
-            Plugin.Logger.LogInfo($"{Language.GetString(material.m_id)} [{material.m_id}] {material.m_material_num}");
-        }
+        Plugin.Logger.LogInfo($"GOT TOWN MATERIAL ITEMS");
+        // foreach (var material in materialList) {
+        //     Plugin.Logger.LogInfo($"{Language.GetString(material.m_id)} [{material.m_id}] {material.m_material_num}");
+        // }
 
         ItemStorageData m_ItemStorageData = (ItemStorageData)Traverse.Create(typeof(StorageData)).Property("m_ItemStorageData").GetValue();
-        Plugin.Logger.LogInfo($"PLAYER ITEMS");
-        Plugin.Logger.LogInfo($"m_ItemStorageData {m_ItemStorageData}");
         dynamic m_itemDataListTbl = Traverse.Create(m_ItemStorageData).Property("m_itemDataListTbl").GetValue();
-        foreach (var itemList in m_itemDataListTbl) {
-            foreach (var item in itemList.ToArray()) {
-                if (item.m_itemNum == 0) { continue; }
-                Plugin.Logger.LogInfo($"{Language.GetString(item.m_itemID)} [{item.m_itemID}] {item.m_itemNum}");
-            }
-        }
+        Plugin.Logger.LogInfo($"GOT PLAYER ITEMS");
+
+        // foreach (var item in m_itemDataListTbl[(int)ItemStorageData.StorageType.PLAYER].ToArray()) {
+        //     if (item.m_itemNum == 0) { continue; }
+        //     Plugin.Logger.LogInfo($"{Language.GetString(item.m_itemID)} [{item.m_itemID}] {item.m_itemNum}");
+        // }
     }
 }
 
-// [HarmonyPatch(typeof(uCommonSelectWindowPanel), "Update")]
-// public static class Patch_uCommonSelectWindowPanel_Update
-// {
-//     public static void Postfix(uCommonSelectWindowPanel __instance) {
-//         Plugin.Logger.LogInfo($"uCommonSelectWindowPanel::Update");
-//         // Plugin.Logger.LogInfo($"window_type {window_type}");
-//         // Plugin.Logger.LogInfo($"__instance {__instance}");
+// [HarmonyPatch(AccessTools.TypeByName("CScenarioScript"), "CallCmdBlockCommonSelectWindow")]
+// [HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindow) }, new ArgumentType[] { ArgumentType.Ref } )]
+[HarmonyPatch]
+public static class Test
+{
+    [HarmonyTargetMethod]
+    public static MethodBase TargetMethod(Harmony instance) {
+        Type type = AccessTools.TypeByName("CScenarioScript");
 
-//         dynamic m_itemPanel = Traverse.Create(__instance).Property("m_itemPanel").GetValue();
-//         Plugin.Logger.LogInfo($"m_itemPanel {m_itemPanel}");
-//     }
-// }
+        return AccessTools.Method(type, "CallCmdBlockCommonSelectWindow");
+    }
+
+    public static void Postfix(ParameterCommonSelectWindow _param, uCommonSelectWindowPanel __instance) {
+        Plugin.Logger.LogInfo($"CScenarioScript::CallCmdBlockCommonSelectWindow");
+        Plugin.Logger.LogInfo($"__instance #{__instance}");
+        Plugin.Logger.LogInfo($"_param #{_param}");
+        Plugin.Logger.LogInfo($"_param.mode #{_param.m_mode}");
+    }
+}
