@@ -15,9 +15,9 @@ using UnityEngine.UI;
 // NOTES:
 //   - Got town material inventory
 //   - Got player item inventory (needs refinement)
-// TODO: Check out CScenarioScript class and it's CallCmdBlockCommonSelectWindow() method
-//   - Need to detect what "conversion" option a player is hovering override
-//   - Need detect when a selection is "selected" and will grant the converted rewards
+//   - Got selected item when selected!!!
+// TODO: Would be nice to check WindowType when item is selected and skip processing if it's not one we're interested in
+//   - Currently not sure how to get the WindowType from ParameterCommonSelectWindow or uCommonSelectWindowPanel
 
 namespace ConversionOverhaul;
 
@@ -119,6 +119,8 @@ public static class Test
         Plugin.Logger.LogInfo($"CScenarioScript::CallCmdBlockCommonSelectWindow");
         Plugin.Logger.LogInfo($"__instance #{__instance}");
         Plugin.Logger.LogInfo($"_param #{_param}");
-        Plugin.Logger.LogInfo($"_param.mode #{_param.m_mode}");
+        
+        dynamic item = Traverse.Create(_param).Property("m_select_item1").GetValue();
+        Plugin.Logger.LogInfo($"{Language.GetString(item)} [{item}]");
     }
 }
