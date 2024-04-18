@@ -115,7 +115,7 @@ public static class Test
         return AccessTools.Method(type, "CallCmdBlockCommonSelectWindow");
     }
 
-    public static void Postfix(ParameterCommonSelectWindow _param, uCommonSelectWindowPanel __instance) {
+    public static void Postfix(ParameterCommonSelectWindow _param, dynamic __instance) {
         Plugin.Logger.LogInfo($"CScenarioScript::CallCmdBlockCommonSelectWindow");
         Plugin.Logger.LogInfo($"__instance #{__instance}");
         Plugin.Logger.LogInfo($"_param #{_param}");
