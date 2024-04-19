@@ -27,6 +27,19 @@ public class Plugin : BasePlugin
 {
     public static ManualLogSource Logger;
     public static Type CScenarioScript;
+    public static List<ParameterCommonSelectWindowMode.WindowType> town_material_window_types = new List<ParameterCommonSelectWindowMode.WindowType> {
+        ParameterCommonSelectWindowMode.WindowType.MaterialChange01,
+        ParameterCommonSelectWindowMode.WindowType.MaterialChange02,
+        ParameterCommonSelectWindowMode.WindowType.MaterialChange03,
+        ParameterCommonSelectWindowMode.WindowType.MaterialChange04,
+        ParameterCommonSelectWindowMode.WindowType.AdventureInfo
+    }; 
+    public static List<ParameterCommonSelectWindowMode.WindowType> player_inventory_window_types = new List<ParameterCommonSelectWindowMode.WindowType> {
+        ParameterCommonSelectWindowMode.WindowType._03
+    };
+    public static List<ParameterCommonSelectWindowMode.WindowType> windows_we_care_about = Plugin.town_material_window_types.Concat(Plugin.player_inventory_window_types).ToList();
+    public static Dictionary<string, int> town_materials = new Dictionary<string, int>();
+    public static Dictionary<string, int> player_items = new Dictionary<string, int>();
 
     public override void Load()
     {
@@ -35,6 +48,7 @@ public class Plugin : BasePlugin
 
         // Plugin startup logic
         Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
+
         this.Awake();
     }
 
@@ -83,6 +97,11 @@ public static class Patch_ParameterCommonSelectWindowMode_GetParam
 public static class Patch_uCommonSelectWindowPanel_Setup
 {
     public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, uCommonSelectWindowPanel __instance) {
+        // Il2CppSystem.Collections.Generic.Dictionary<string, Csvb<Language.LanguageCSVB>> languages = (Il2CppSystem.Collections.Generic.Dictionary<string, Csvb<Language.LanguageCSVB>>)Traverse.Create(typeof(Language)).Property("m_language").GetValue();
+        // foreach (string key in languages.Keys) {
+        //     Plugin.Logger.LogInfo($"{key}");
+        // }
+        
         Plugin.Logger.LogInfo($"uCommonSelectWindowPanel::Setup");
         // Plugin.Logger.LogInfo($"window_type {window_type}");
         // Plugin.Logger.LogInfo($"__instance {__instance}");
@@ -90,23 +109,60 @@ public static class Patch_uCommonSelectWindowPanel_Setup
         dynamic m_itemPanel = Traverse.Create(__instance).Property("m_itemPanel").GetValue();
         Plugin.Logger.LogInfo($"m_itemPanel {m_itemPanel}");
 
-        TownMaterialDataAccess m_materialData = (TownMaterialDataAccess)Traverse.Create(typeof(StorageData)).Property("m_materialData").GetValue();
-        dynamic materialList = Traverse.Create(m_materialData).Property("m_materialDatas").GetValue();
-        Plugin.Logger.LogInfo($"GOT TOWN MATERIAL ITEMS");
-        // foreach (var material in materialList) {
-        //     Plugin.Logger.LogInfo($"{Language.GetString(material.m_id)} [{material.m_id}] {material.m_material_num}");
-        // }
+        if (Plugin.town_material_window_types.Contains(window_type)) {
+            TownMaterialDataAccess m_materialData = (TownMaterialDataAccess)Traverse.Create(typeof(StorageData)).Property("m_materialData").GetValue();
+            dynamic materialList = Traverse.Create(m_materialData).Property("m_materialDatas").GetValue();
+            Plugin.Logger.LogInfo($"GOT TOWN MATERIAL ITEMS");
+            Plugin.town_materials.Clear();
+            foreach (var material in materialList) {
+                string key = Language.GetString(material.m_id);
+                if (!string.IsNullOrEmpty(key))
+                    Plugin.town_materials[key] = material.m_material_num;
+            }
+            foreach(var item in Plugin.town_materials) {
+                Plugin.Logger.LogInfo($"{item.Key} {item.Value}");    
+            }
+        }
 
-        ItemStorageData m_ItemStorageData = (ItemStorageData)Traverse.Create(typeof(StorageData)).Property("m_ItemStorageData").GetValue();
-        dynamic m_itemDataListTbl = Traverse.Create(m_ItemStorageData).Property("m_itemDataListTbl").GetValue();
-        Plugin.Logger.LogInfo($"GOT PLAYER ITEMS");
+        if (Plugin.player_inventory_window_types.Contains(window_type)) {
+            ItemStorageData m_ItemStorageData = (ItemStorageData)Traverse.Create(typeof(StorageData)).Property("m_ItemStorageData").GetValue();
+            dynamic m_itemDataListTbl = Traverse.Create(m_ItemStorageData).Property("m_itemDataListTbl").GetValue();
+            Plugin.Logger.LogInfo($"GOT PLAYER ITEMS");
+            Plugin.player_items.Clear();
+            foreach (var item in m_itemDataListTbl[(int)ItemStorageData.StorageType.PLAYER].ToArray()) {
+                string key = Language.GetString(item.m_itemID);
+                if (!string.IsNullOrEmpty(key))
+                    Plugin.player_items[key] = item.m_itemNum;
+            }
+            foreach(var item in Plugin.player_items) {
+                Plugin.Logger.LogInfo($"{item.Key} {item.Value}");    
+            }
+        }
 
-        // foreach (var item in m_itemDataListTbl[(int)ItemStorageData.StorageType.PLAYER].ToArray()) {
-        //     if (item.m_itemNum == 0) { continue; }
-        //     Plugin.Logger.LogInfo($"{Language.GetString(item.m_itemID)} [{item.m_itemID}] {item.m_itemNum}");
-        // }
+        Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow> window_list = (Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow>)Traverse.Create(__instance).Property("m_paramCommonSelectWindowList").GetValue();
     }
 }
+
+// [HarmonyPatch(typeof(uCommonSelectWindowPanel), "Update")]
+// public static class Patch_uCommonSelectWindowPanel_Update
+// {
+//     public static void Postfix(uCommonSelectWindowPanel __instance) {
+//         ParameterCommonSelectWindowMode.WindowType window_type = (ParameterCommonSelectWindowMode.WindowType)Traverse.Create(__instance).Property("m_windowType").GetValue();
+//         if (!Plugin.windows_we_care_about.Contains(window_type))
+//             return;
+
+//         Plugin.Logger.LogInfo($"window_type {window_type}");
+
+//         Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow> window_list = (Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow>)Traverse.Create(__instance).Property("m_paramCommonSelectWindowList").GetValue();
+//         Plugin.Logger.LogInfo($"window_list.Count {window_list.Count}");
+//         int i = 1;
+//         foreach (var window in window_list) {
+//             string scriptCommand = (string)Traverse.Create(window).Property("m_scriptCommand").GetValue();
+//             Plugin.Logger.LogInfo($"scriptCommand #{i} {scriptCommand}");
+//             i++;
+//         }
+//     }
+// }
 
 // [HarmonyPatch(AccessTools.TypeByName("CScenarioScript"), "CallCmdBlockCommonSelectWindow")]
 // [HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindow) }, new ArgumentType[] { ArgumentType.Ref } )]
