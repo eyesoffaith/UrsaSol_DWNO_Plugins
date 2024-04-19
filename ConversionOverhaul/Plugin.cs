@@ -18,6 +18,7 @@ using UnityEngine.UI;
 //   - Got selected item when selected!!!
 // TODO: Would be nice to check WindowType when item is selected and skip processing if it's not one we're interested in
 //   - Currently not sure how to get the WindowType from ParameterCommonSelectWindow or uCommonSelectWindowPanel
+//   - It looks like the m_scriptCommand from ParameterCommonSelectWindow seems to be unique per NPC window and can be used kinda like window_type
 
 namespace ConversionOverhaul;
 
@@ -25,7 +26,8 @@ namespace ConversionOverhaul;
 public class Plugin : BasePlugin
 {
     public static ManualLogSource Logger;
-    
+    public static Type CScenarioScript;
+
     public override void Load()
     {
         Plugin.Logger = base.Log;
@@ -44,13 +46,16 @@ public class Plugin : BasePlugin
 }
 
 /*
+[C024]
 MaterialChange01 = Gostumon (metal)
 MaterialChange02 = Gostumon (stone)
+                   Gostumon (special)
+[D021]
 MaterialChange03 = Tyrannomon (wood)
 AdventureInfo = Tyrannomon (liquid)
+                Tyrannomon (special)
+[D034]
 window_type _03 = Gaurdromon (lab item creation)
-LaboratoryItemChange01 = Zudomon (liquid/stone hunt)
-LaboratoryItemChange02 = Haguromon (metal/wood hunt)
 */
 
 /*
@@ -110,9 +115,9 @@ public static class Test
 {
     [HarmonyTargetMethod]
     public static MethodBase TargetMethod(Harmony instance) {
-        Type type = AccessTools.TypeByName("CScenarioScript");
+        Plugin.CScenarioScript = AccessTools.TypeByName("CScenarioScript");
 
-        return AccessTools.Method(type, "CallCmdBlockCommonSelectWindow");
+        return AccessTools.Method(Plugin.CScenarioScript, "CallCmdBlockCommonSelectWindow");
     }
 
     public static void Postfix(ParameterCommonSelectWindow _param, dynamic __instance) {
@@ -122,5 +127,24 @@ public static class Test
         
         dynamic item = Traverse.Create(_param).Property("m_select_item1").GetValue();
         Plugin.Logger.LogInfo($"{Language.GetString(item)} [{item}]");
+
+        string command = (string)Traverse.Create(_param).Property("m_scriptCommand").GetValue();
+        string parameters = "";
+        for (int i = 1; i < 9; i ++) {
+            parameters += $"\t{(string)Traverse.Create(_param).Property($"m_scriptCommandParam{i}").GetValue()}";
+        }
+        Plugin.Logger.LogInfo($"command #{command}");
+        Plugin.Logger.LogInfo($"parameters #{parameters}");
+
+        // Plugin.Logger.LogInfo($"METHODS");
+        // foreach (var method in _param.GetType().GetMethods()) {
+        //     string parameterDescriptions = string.Join(", ", ((MethodInfo)method).GetParameters().Select(x => $"{x.ParameterType} {x.Name}").ToArray());
+        //     Plugin.Logger.LogInfo($"{method.ReturnType} {method.Name} {parameterDescriptions}");    
+        // }
+
+        // Plugin.Logger.LogInfo($"PROPERTIES");
+        // foreach (var property in _param.GetType().GetProperties()) {
+        //     Plugin.Logger.LogInfo($"{property}");    
+        // }
     }
 }
