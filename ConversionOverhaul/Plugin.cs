@@ -62,7 +62,8 @@ public class Plugin : BasePlugin
         ParameterCommonSelectWindowMode.WindowType.MaterialChange02,
         ParameterCommonSelectWindowMode.WindowType.MaterialChange03,
         ParameterCommonSelectWindowMode.WindowType.MaterialChange04,
-        ParameterCommonSelectWindowMode.WindowType.AdventureInfo
+        ParameterCommonSelectWindowMode.WindowType.AdventureInfo,
+        ParameterCommonSelectWindowMode.WindowType.TreasureMaterial
     }; 
     public static List<ParameterCommonSelectWindowMode.WindowType> player_inventory_window_types = new List<ParameterCommonSelectWindowMode.WindowType> {
         ParameterCommonSelectWindowMode.WindowType._03
@@ -102,11 +103,11 @@ public class Plugin : BasePlugin
 [C024]
 MaterialChange01 = Gostumon (metal)
 MaterialChange02 = Gostumon (stone)
-                   Gostumon (special)
+TreasureMaterial = Gostumon (special)
 [D021]
 MaterialChange03 = Tyrannomon (wood)
 AdventureInfo = Tyrannomon (liquid)
-                Tyrannomon (special)
+MaterialChange04 = Tyrannomon (special)
 [D034]
 window_type _03 = Gaurdromon (lab item creation)
 */
@@ -115,21 +116,15 @@ window_type _03 = Gaurdromon (lab item creation)
 Transmission = Birdramon
 */
 
-// [HarmonyPatch(typeof(ParameterCommonSelectWindowMode), "GetParam")]
-// [HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindowMode.WindowType) })]
-// public static class Patch_ParameterCommonSelectWindowMode_GetParam
-// {
-//     public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, ref dynamic __result) {
-//         Plugin.Logger.LogInfo($"ParameterCommonSelectWindowMode::GetParam");
-//     }
-// }
-
 [HarmonyPatch(typeof(uCommonSelectWindowPanel), "Setup")]
 [HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindowMode.WindowType) }, new ArgumentType[] { ArgumentType.Ref } )]
 public static class Patch_uCommonSelectWindowPanel_Setup
 {
     public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, uCommonSelectWindowPanel __instance) {
         Plugin.selected_item = null;
+
+        Plugin.Logger.LogInfo($"Patch_uCommonSelectWindowPanel_Setup");
+        Plugin.Logger.LogInfo($"window_type {window_type}");
 
         if (Plugin.town_material_window_types.Contains(window_type)) {
             TownMaterialDataAccess m_materialData = (TownMaterialDataAccess)Traverse.Create(typeof(StorageData)).Property("m_materialData").GetValue();
