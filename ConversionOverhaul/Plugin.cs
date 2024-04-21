@@ -17,6 +17,19 @@ using UnityEngine.UI;
 //   - Figure out Gostumon and Tyranmon window_type for Sundays
 //   - Tweak Guardrmon exchange so that it works like the Gutsumon and Tyranmon (change panel item text to list ingredients)
 
+// [C024]
+// MaterialChange01 = Gostumon (metal)
+// MaterialChange02 = Gostumon (stone)
+// TreasureMaterial = Gostumon (special)
+
+// [D021]
+// MaterialChange03 = Tyrannomon (wood)
+// AdventureInfo = Tyrannomon (liquid)
+// MaterialChange04 = Tyrannomon (special)
+
+// [D034]
+// window_type _03 = Gaurdromon (lab item creation)
+
 namespace ConversionOverhaul;
 
 public class SelectedItem
@@ -98,23 +111,6 @@ public class Plugin : BasePlugin
         harmony.PatchAll();
     }
 }
-
-/*
-[C024]
-MaterialChange01 = Gostumon (metal)
-MaterialChange02 = Gostumon (stone)
-TreasureMaterial = Gostumon (special)
-[D021]
-MaterialChange03 = Tyrannomon (wood)
-AdventureInfo = Tyrannomon (liquid)
-MaterialChange04 = Tyrannomon (special)
-[D034]
-window_type _03 = Gaurdromon (lab item creation)
-*/
-
-/*
-Transmission = Birdramon
-*/
 
 [HarmonyPatch(typeof(uCommonSelectWindowPanel), "Setup")]
 [HarmonyPatch(new Type[] { typeof(ParameterCommonSelectWindowMode.WindowType) }, new ArgumentType[] { ArgumentType.Ref } )]
