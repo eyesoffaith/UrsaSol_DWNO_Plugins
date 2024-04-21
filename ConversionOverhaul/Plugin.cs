@@ -12,6 +12,11 @@ using HarmonyLib.Tools;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine.UI;
 
+
+// TODO:
+//   - Figure out Gostumon and Tyranmon window_type for Sundays
+//   - Tweak Guardrmon exchange so that it works like the Gutsumon and Tyranmon (change panel item text to list ingredients)
+
 namespace ConversionOverhaul;
 
 public class SelectedItem
@@ -155,8 +160,10 @@ public static class Patch_uCommonSelectWindowPanel_Setup
 [HarmonyPatch(typeof(uCommonSelectWindowPanel), "Update")]
 public static class Patch_uCommonSelectWindowPanel_Update
 {
-    public static void SetCaptionText() {
-
+    public static void SetCaptionText(uCommonSelectWindowPanelCaption captionPanel, string replace, string with) {
+        Text captionText = (Text)Traverse.Create(captionPanel).Property("m_text").GetValue();
+        UtilityScript.SetLangButtonText(ref captionText, "cw_caption_0");
+        captionText.text = captionText.text.Replace(replace, with);
     }
 
     public static void Postfix(uCommonSelectWindowPanel __instance) {
@@ -164,7 +171,6 @@ public static class Patch_uCommonSelectWindowPanel_Update
         if (!Plugin.windows_we_care_about.Contains(window_type))
             return;
         uCommonSelectWindowPanelCaption captionPanel = (uCommonSelectWindowPanelCaption)Traverse.Create(__instance).Property("m_captionPanel").GetValue();
-        Text captionText;
 
         if (Plugin.selected_item != null) {
             int amount = 1;
@@ -181,11 +187,7 @@ public static class Patch_uCommonSelectWindowPanel_Update
                 Plugin.selected_item.num_exchanges = Plugin.selected_item.item_count / 5;
             if (Plugin.selected_item.num_exchanges < 1)
                 Plugin.selected_item.num_exchanges = 1;
-
-            captionPanel.Initialize();
-            captionPanel.enablePanel(true);
-            captionText = (Text)Traverse.Create(captionPanel).Property("m_text").GetValue();
-            captionText.text = captionText.text.Replace("OK", $"Exchange x{Plugin.selected_item.num_exchanges}");
+            SetCaptionText(captionPanel, "OK", $"Exchange x{Plugin.selected_item.num_exchanges}");
         }
 
         uItemBase panel_item = (uItemBase)Traverse.Create(__instance).Property("m_itemPanel").GetValue();
@@ -201,10 +203,7 @@ public static class Patch_uCommonSelectWindowPanel_Update
         SelectedItem selected_item = new SelectedItem(item_id, item_type);
         Plugin.selected_item = selected_item;
 
-        captionPanel.Initialize();
-        captionPanel.enablePanel(true);
-        captionText = (Text)Traverse.Create(captionPanel).Property("m_text").GetValue();
-        captionText.text = captionText.text.Replace("OK", $"Exchange x{Plugin.selected_item.num_exchanges}");
+        SetCaptionText(captionPanel, "OK", $"Exchange x{Plugin.selected_item.num_exchanges}");
     }
 }
 
@@ -216,11 +215,9 @@ public static class Test
         return Plugin.Get_CallCmdBlockCommonSelectWindow_MethodInfo();
     }
 
-    public static bool Prefix(ParameterCommonSelectWindow _param, dynamic __instance) {
-        for (int i = 0; i < Plugin.selected_item.num_exchanges; i++) {
+    public static void Postfix(ParameterCommonSelectWindow _param, dynamic __instance) {
+        for (int i = 0; i < Plugin.selected_item.num_exchanges - 1; i++) {
             Plugin.original_CallCmdBlockCommonSelectWindow.Invoke(__instance, new object[] { __instance, _param });
         }
-
-        return false;
     }
 }
