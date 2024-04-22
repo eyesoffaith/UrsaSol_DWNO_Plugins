@@ -16,6 +16,7 @@ using UnityEngine.UI;
 // TODO:
 //  - Tweak Guardrmon exchange so that it works like the Gutsumon and Tyranmon (change panel item text to list ingredients)
 //      - Need to find what function triggers to give the item to the player (after dialog) so I can shortcut it
+//      - Tracking _csvId and _blockId from _CallCsvbBlock in CScenarioScriptBase seems promising. Maybe I can work back from those two IDs to the script name or function that triggers them
 //  - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
 //  - Include keyboard equivalent of gamepad Square for maxing num_exchange
 
@@ -235,6 +236,8 @@ public static class Patch_CScenarioScript_CallCmdBlockCommonSelectWindow
     }
 
     public static void Postfix(ParameterCommonSelectWindow _param, dynamic __instance) {
+        if (Plugin.selected_item == null)
+            return;
         for (int i = 0; i < Plugin.selected_item.num_exchanges - 1; i++) {
             Plugin.original_CallCmdBlockCommonSelectWindow.Invoke(__instance, new object[] { __instance, _param });
         }
@@ -254,5 +257,23 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
         Plugin.Logger.LogInfo($"__instance {__instance}");
         Plugin.Logger.LogInfo($"_csvbId {_csvbId}");
         Plugin.Logger.LogInfo($"_blockId {_blockId}");
+    }
+}
+
+[HarmonyPatch]
+public static class Patch_CScenarioScriptBase__CallCsvbBlock
+{
+    [HarmonyTargetMethod]
+    public static MethodBase TargetMethod(Harmony instance) {
+        return Plugin.GetOriginalMethod("CScenarioScriptBase", "_CallCsvbBlock");
+    }
+
+    public static void Postfix(int _csvbIdx, int _blockIdx, dynamic __instance) {
+        if (_csvbIdx == 0 && _blockIdx == 0)
+            return;
+        Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase__CallCsvbBlock");
+        Plugin.Logger.LogInfo($"__instance {__instance}");
+        Plugin.Logger.LogInfo($"_csvbIdx {_csvbIdx}");
+        Plugin.Logger.LogInfo($"blockIdx {_blockIdx}");
     }
 }
