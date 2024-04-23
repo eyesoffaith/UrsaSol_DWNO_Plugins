@@ -12,29 +12,36 @@ using HarmonyLib.Tools;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine.UI;
 
+/*
+TODO:
+    - Tweak Guardrmon exchange so that it works like the Gutsumon and Tyranmon (change panel item text to list ingredients)
+        - Need to find what function triggers to give the item to the player (after dialog) so I can shortcut it
+        - Tracking _csvId and _blockId from _CallCsvbBlock in CScenarioScriptBase seems promising. Maybe I can work back from those two IDs to the script name or function that triggers them
+    - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
+    - Include keyboard equivalent of gamepad Square for maxing num_exchange
 
-// TODO:
-//  - Tweak Guardrmon exchange so that it works like the Gutsumon and Tyranmon (change panel item text to list ingredients)
-//      - Need to find what function triggers to give the item to the player (after dialog) so I can shortcut it
-//      - Tracking _csvId and _blockId from _CallCsvbBlock in CScenarioScriptBase seems promising. Maybe I can work back from those two IDs to the script name or function that triggers them
-//  - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
-//  - Include keyboard equivalent of gamepad Square for maxing num_exchange
+***PICK UP HERE***
+I think all exchanges can be handled via csvbId + blockId format. Mapping them here: [csvbId = Scenario04] for all
+    - Gaurdromon    D034_*
+        - initial option selection is Scenario04/D034_MENU0X where confirmation is SubScenario/D034_MENUX0
+    - Gotsumon      C024_*
+    - Tyrannomon    D021_*
 
-// [C024]
-// MaterialChange01 = Gostumon (metal)
-// MaterialChange02 = Gostumon (stone)
-// TreasureMaterial = Gostumon (special)
+[C024]
+MaterialChange01 = Gostumon (metal)
+MaterialChange02 = Gostumon (stone)
+TreasureMaterial = Gostumon (special)
 
-// [D021]
-// MaterialChange03 = Tyrannomon (wood)
-// AdventureInfo = Tyrannomon (liquid)
-// MaterialChange04 = Tyrannomon (special)
+[D021]
+MaterialChange03 = Tyrannomon (wood)
+AdventureInfo = Tyrannomon (liquid)
+MaterialChange04 = Tyrannomon (special)
 
-// [D034]
-// window_type _03 = Gaurdromon (lab item creation)
-//  - Since there's an in-between dialog option, cut this out and replace the confirmation (are you sure?) with a confirmation (exchange complete)
-//  - Front-load item requirements to the menu by red-lining the options and disabling them if required item's aren't present
-
+[D034]
+window_type _03 = Gaurdromon (lab item creation)
+ - Since there's an in-between dialog option, cut this out and replace the confirmation (are you sure?) with a confirmation (exchange complete)
+ - Front-load item requirements to the menu by red-lining the options and disabling them if required item's aren't present
+*/
 namespace ConversionOverhaul;
 
 public class SelectedItem
@@ -56,9 +63,6 @@ public class SelectedItem
         if (this.item_type == ItemType.Item) {
             return Plugin.player_items[item_name];
         }
-
-        Plugin.Logger.LogInfo("Shit");
-
         return 0;
     } }
 
@@ -210,8 +214,8 @@ public static class Patch_uCommonSelectWindowPanel_Update
 
         Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow> window_list = (Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow>)Traverse.Create(__instance).Property("m_paramCommonSelectWindowList").GetValue();
         ParameterCommonSelectWindow window = window_list[selected_option];
-        string blockID = (string)Traverse.Create(window).Property("m_scriptCommand").GetValue();
-        Plugin.Logger.LogInfo($"blockID {blockID}");
+        // string blockID = (string)Traverse.Create(window).Property("m_scriptCommand").GetValue();
+        // Plugin.Logger.LogInfo($"blockID {blockID}");
         
         if (Plugin.player_inventory_window_types.Contains(window_type))
             return;
@@ -245,6 +249,23 @@ public static class Patch_CScenarioScript_CallCmdBlockCommonSelectWindow
 }
 
 [HarmonyPatch]
+public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
+{
+    [HarmonyTargetMethod]
+    public static MethodBase TargetMethod(Harmony instance) {
+        return Plugin.GetOriginalMethod("CScenarioScriptBase", "CallAllCsvbBlock");
+    }
+
+    public static void Postfix(string _blockId, dynamic __instance) {
+        if (string.IsNullOrEmpty(_blockId))
+            return;
+        // Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase__CallCsvbBlock");
+        // Plugin.Logger.LogInfo($"__instance {__instance}");
+        Plugin.Logger.LogInfo($"_blockId {_blockId}");
+    }
+}
+
+[HarmonyPatch]
 public static class Patch_CScenarioScriptBase_CallCsvbBlock
 {
     [HarmonyTargetMethod]
@@ -253,8 +274,8 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
     }
 
     public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
-        Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase_CallCsvbBlock");
-        Plugin.Logger.LogInfo($"__instance {__instance}");
+        // Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase_CallCsvbBlock");
+        // Plugin.Logger.LogInfo($"__instance {__instance}");
         Plugin.Logger.LogInfo($"_csvbId {_csvbId}");
         Plugin.Logger.LogInfo($"_blockId {_blockId}");
     }
@@ -271,8 +292,8 @@ public static class Patch_CScenarioScriptBase__CallCsvbBlock
     public static void Postfix(int _csvbIdx, int _blockIdx, dynamic __instance) {
         if (_csvbIdx == 0 && _blockIdx == 0)
             return;
-        Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase__CallCsvbBlock");
-        Plugin.Logger.LogInfo($"__instance {__instance}");
+        // Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase__CallCsvbBlock");
+        // Plugin.Logger.LogInfo($"__instance {__instance}");
         Plugin.Logger.LogInfo($"_csvbIdx {_csvbIdx}");
         Plugin.Logger.LogInfo($"blockIdx {_blockIdx}");
     }
