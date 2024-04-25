@@ -42,6 +42,7 @@ window_type _03 = Gaurdromon (lab item creation)
  - Since there's an in-between dialog option, cut this out and replace the confirmation (are you sure?) with a confirmation (exchange complete)
  - Front-load item requirements to the menu by red-lining the options and disabling them if required item's aren't present
 */
+
 namespace ConversionOverhaul;
 
 public class SelectedItem
@@ -93,24 +94,38 @@ public class Plugin : BasePlugin
         ParameterCommonSelectWindowMode.WindowType._03
     };
 
-    public static string town_material_script_types = new [] { "C024", "D021" };
-    public static string player_inventory_script_types = new [] { "D034" };
-    public static string script_types_we_care_about = town_material_script_types.Concat(player_inventory_script_types).ToArray();
+    public static string[] town_material_script_types = new [] { "C024", "D021" };
+    public static string[] player_inventory_script_types = new [] { "D034" };
+    public static string[] script_types_we_care_about = town_material_script_types.Concat(player_inventory_script_types).ToArray();
 
     public static List<ParameterCommonSelectWindowMode.WindowType> windows_we_care_about = Plugin.town_material_window_types.Concat(Plugin.player_inventory_window_types).ToList();
     public static Dictionary<string, int> town_materials = new Dictionary<string, int>();
     public static Dictionary<string, int> player_items = new Dictionary<string, int>();
-    public static SelectedItem selected_item;
+    public static List<(string, uint)> selected_recipe = new List<(string, uint)>();
+    public static int selected_option;
+    public static int num_exchanges;
     public static MethodInfo original_CallCmdBlockCommonSelectWindow;
-    public static Dictionary<string, (string, int)[]> lab_recipes = new Dictionary<string, (string name, int count)[]>() {
-        { "Double Disk", new [] { ("MP Disk", 2), ("Recovery Disk", 2) } },
-        { "Large Double Disk", new [] { ("Medium MP Disk", 3), ("Medium Recovery Disk", 3) } },
-        { "Super Double Disk", new [] { ("Large MP Disk", 2), ("Large Recovery Disk", 2) } },
-        { "Large Recovery Disk", new [] { ("Medium Recovery Disk", 5) } },
-        { "Large MP Disk", new [] { ("Medium MP Disk", 5) } },
-        { "Full Remedy Disk", new [] { ("Remedy Disk", 10) } },
-        { "Super Regen Disk", new [] { ("Regen Disk", 10) } },
-        { "Medicine", new [] { ("Bandage", 5), ("Recovery Disk", 3) } }
+
+    public static (string, (string, int)[])[] lab_recipes = new [] {
+        ( "Double Disk", new [] { ("MP Disk", 2), ("Recovery Disk", 2) } ),
+        ( "Large Double Disk", new [] { ("Medium MP Disk", 3), ("Medium Recovery Disk", 3) } ),
+        ( "Super Double Disk", new [] { ("Large MP Disk", 2), ("Large Recovery Disk", 2) } ),
+        ( "Large Recovery Disk", new [] { ("Medium Recovery Disk", 5) } ),
+        ( "Large MP Disk", new [] { ("Medium MP Disk", 5) } ),
+        ( "Full Remedy Disk", new [] { ("Remedy Disk", 10) } ),
+        ( "Super Regen Disk", new [] { ("Regen Disk", 10) } ),
+        ( "Medicine", new [] { ("Bandage", 5), ("Recovery Disk", 3) } )
+    };
+
+    public static Dictionary<string, uint> lab_item_lookup = new Dictionary<string, uint>() {
+        { "Double Disk", 2257505834 },
+        { "Large Double Disk", 2257505833 },
+        { "Super Double Disk", 2257505832 },
+        { "Large Recovery Disk", 2240728255 },
+        { "Large MP Disk", 2257505838 },
+        { "Full Remedy Disk", 3595471592 },
+        { "Super Regen Disk", 3612249153 },
+        { "Medicine", 23724250 }
     };
 
     public static MethodInfo GetOriginalMethod(string className, string methodName)
@@ -141,7 +156,8 @@ public class Plugin : BasePlugin
 public static class Patch_uCommonSelectWindowPanel_Setup
 {
     public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, uCommonSelectWindowPanel __instance) {
-        Plugin.selected_item = null;
+        Plugin.selected_recipe.Clear();
+        Plugin.selected_option = -1;
 
         if (Plugin.town_material_window_types.Contains(window_type)) {
             TownMaterialDataAccess m_materialData = (TownMaterialDataAccess)Traverse.Create(typeof(StorageData)).Property("m_materialData").GetValue();
@@ -182,59 +198,66 @@ public static class Patch_uCommonSelectWindowPanel_Update
         ParameterCommonSelectWindowMode.WindowType window_type = (ParameterCommonSelectWindowMode.WindowType)Traverse.Create(__instance).Property("m_windowType").GetValue();
         if (!Plugin.windows_we_care_about.Contains(window_type))
             return;
-        uCommonSelectWindowPanelCaption captionPanel = (uCommonSelectWindowPanelCaption)Traverse.Create(__instance).Property("m_captionPanel").GetValue();
-
-        if (Plugin.selected_item != null) {
-            int num_exchanges = Plugin.selected_item.num_exchanges;
-            if (PadManager.IsTrigger(PadManager.BUTTON.bSquare))
-                num_exchanges = Plugin.selected_item.item_count / 5;
-            if (PadManager.IsRepeat(PadManager.BUTTON.dLeft)) 
-                num_exchanges--;
-            if (PadManager.IsRepeat(PadManager.BUTTON.dRight))
-                num_exchanges++;
-            if (num_exchanges > Plugin.selected_item.item_count / 5)
-                num_exchanges = Plugin.selected_item.item_count / 5;
-            if (num_exchanges < 1)
-                num_exchanges = 1;
-            if (num_exchanges != Plugin.selected_item.num_exchanges)
-                CriSoundManager.PlayCommonSe("S_005");
-            SetCaptionText(captionPanel, "OK", $"Exchange x{num_exchanges}");
-            Plugin.selected_item.num_exchanges = num_exchanges;
-        }
 
         uItemBase panel_item = (uItemBase)Traverse.Create(__instance).Property("m_itemPanel").GetValue();
-
         int selected_option = (int)Traverse.Create(panel_item).Property("m_selectNo").GetValue();
         // Weird special-case during Sunday trades, the window_list has an extra element in the middle of the list throwing off the index
         // Temp-solution: +1 to "selected_option" so we can pull the correct item
         if (Plugin.sunday_trade_window_types.Contains(window_type) && selected_option > 2)
             selected_option += 1;
 
-        
+        if (Plugin.selected_recipe.Any()) {
+            var itemCollection = Plugin.player_inventory_window_types.Contains(window_type) ? Plugin.player_items : Plugin.town_materials;
+            int max_num_exchanges = Plugin.selected_recipe.Select(x => itemCollection[(string)x.Item1] / (int)x.Item2).Min();;
+            int num_exchanges = Plugin.num_exchanges;
+            if (PadManager.IsTrigger(PadManager.BUTTON.bSquare))
+                num_exchanges = max_num_exchanges;
+            if (PadManager.IsRepeat(PadManager.BUTTON.dLeft)) 
+                num_exchanges--;
+            if (PadManager.IsRepeat(PadManager.BUTTON.dRight))
+                num_exchanges++;
+            if (num_exchanges > max_num_exchanges)
+                num_exchanges = max_num_exchanges;
+            if (num_exchanges < 1)
+                num_exchanges = 1;
+            if (num_exchanges != Plugin.num_exchanges)
+                CriSoundManager.PlayCommonSe("S_005");
+            Plugin.num_exchanges = num_exchanges;
+            uCommonSelectWindowPanelCaption captionPanel = (uCommonSelectWindowPanelCaption)Traverse.Create(__instance).Property("m_captionPanel").GetValue();
+            SetCaptionText(captionPanel, "OK", $"Exchange x{num_exchanges}");
+        }
 
+        if (selected_option == Plugin.selected_option)
+            return;
+
+        Plugin.selected_option = selected_option;
+        Plugin.num_exchanges = 1;
+        Plugin.Logger.LogInfo($"selected_option {Plugin.selected_option}");
         Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow> window_list = (Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow>)Traverse.Create(__instance).Property("m_paramCommonSelectWindowList").GetValue();
         ParameterCommonSelectWindow window = window_list[selected_option];
+        Plugin.Logger.LogInfo($"window {window}");
         string scriptCommand = (string)Traverse.Create(window).Property("m_scriptCommand").GetValue();
+        Plugin.Logger.LogInfo($"scriptCommand {scriptCommand}");
         string scriptType = scriptCommand.Split("_")[0];
-        dynamic item_id;
-
-        if (Plugin.town_material_window_types.Contains(window_type)){
-            item_id = Traverse.Create(window).Property("m_select_item1").GetValue();
-        }
-        else
-        {
-
-        }
-            return;
-
+        Plugin.Logger.LogInfo($"scriptType {scriptType}");
         
-        if (Plugin.selected_item != null && Plugin.selected_item.item_id == item_id)
-            return;
-
-        SelectedItem.ItemType item_type = Plugin.town_material_window_types.Contains(window_type) ? SelectedItem.ItemType.Material : SelectedItem.ItemType.Item;
-        SelectedItem selected_item = new SelectedItem(item_type, item_id);
-        Plugin.selected_item = selected_item;
-        SetCaptionText(captionPanel, "OK", $"Exchange x{Plugin.selected_item.num_exchanges}");
+        Plugin.selected_recipe.Clear();
+        Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
+        Plugin.Logger.LogInfo($"window_type {window_type}");
+        if (Plugin.town_material_window_types.Contains(window_type)) {
+            uint item_id = (uint)Traverse.Create(window).Property("m_select_item1").GetValue();
+            Plugin.Logger.LogInfo($"item_id {item_id}");
+            Plugin.selected_recipe.Add((Language.GetString(item_id), 5));
+            Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
+        }
+        if (Plugin.player_inventory_window_types.Contains(window_type)) {
+            (string, (string, int)[] Input) recipe = Plugin.lab_recipes[selected_option];
+            Plugin.Logger.LogInfo($"recipe {recipe}");
+            foreach ((string name, int count) item in recipe.Input) {
+                Plugin.selected_recipe.Add((item.name, (uint)item.count));
+            }
+            Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
+        }
     }
 }
 
@@ -247,9 +270,7 @@ public static class Patch_CScenarioScript_CallCmdBlockCommonSelectWindow
     }
 
     public static void Postfix(ParameterCommonSelectWindow _param, dynamic __instance) {
-        if (Plugin.selected_item == null)
-            return;
-        for (int i = 0; i < Plugin.selected_item.num_exchanges - 1; i++) {
+        for (int i = 0; i < Plugin.num_exchanges - 1; i++) {
             Plugin.original_CallCmdBlockCommonSelectWindow.Invoke(__instance, new object[] { __instance, _param });
         }
     }
@@ -264,12 +285,11 @@ public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
     }
 
     public static void Postfix(string _blockId, dynamic __instance) {
-        if (string.IsNullOrEmpty(_blockId))
-            return;
-            
+        // if (string.IsNullOrEmpty(_blockId))
+        //     return;
         // Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase__CallCsvbBlock");
         // Plugin.Logger.LogInfo($"__instance {__instance}");
-        Plugin.Logger.LogInfo($"_blockId {_blockId}");
+        // Plugin.Logger.LogInfo($"_blockId {_blockId}");
     }
 }
 
@@ -282,15 +302,12 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
     }
 
     public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
-        if (Plugin.selected_item == null)
-            return;
-        
         // for (int i = 0; i < Plugin.selected_item.num_exchanges - 1; i++) {
         //     Plugin.original_CallCmdBlockCommonSelectWindow.Invoke(__instance, new object[] { __instance, _param });
         // }
         // Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase_CallCsvbBlock");
         // Plugin.Logger.LogInfo($"__instance {__instance}");
-        Plugin.Logger.LogInfo($"_csvbId {_csvbId}");
-        Plugin.Logger.LogInfo($"_blockId {_blockId}");
+        // Plugin.Logger.LogInfo($"_csvbId {_csvbId}");
+        // Plugin.Logger.LogInfo($"_blockId {_blockId}");
     }
 }
