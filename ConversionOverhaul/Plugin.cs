@@ -14,6 +14,7 @@ using UnityEngine.UI;
 
 /*
 TODO:
+    - What code handles disabling panel options and turning their text red in Gotsumon/Tyrannomon trades [uItemBase.SetItemContent???]
     - Look into generating new panel to the right of screen kind of like a shop
     - Tweak Guardrmon exchange so that it works like the Gutsumon and Tyranmon (change panel item text to list ingredients)
         - !UtilityScript.IsListActiveRef<ItemData>(ref this.m_itemList, ref this.m_selectNo) check this method call. Maybe useful to "disable" options
@@ -130,7 +131,7 @@ public class Plugin : BasePlugin
         HarmonyFileLog.Enabled = true;
 
         // Plugin startup logic
-        Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
+        //Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
         this.Awake();
     }
 
@@ -148,16 +149,10 @@ public static class Patch_AppMainScript__FinishedParameterLoad
     [HarmonyPrefix]
     public static void Prefix()
     {
-        Plugin.Logger.LogInfo("GRABBING SHIT!");
-
-        dynamic m_parameters = Traverse.Create(AppMainScript.Ref).Property("m_parameters").GetValue();
-        dynamic m_csvbItemDataOther = Traverse.Create(m_parameters).Property("m_csvbItemDataOther").GetValue();
-        dynamic m_params = m_csvbItemDataOther.m_params;
-        // ParameterItemData[] params = AppMainScript.Ref.parameters.csvbItemData.params;
         Plugin.ITEM_LOOKUP.Clear();
-        foreach (var item in m_params) {
-            // Plugin.ITEM_LOOKUP[Language.GetString(item.id)] = item.id;
-            Plugin.Logger.LogInfo($"{Language.GetString(item.m_id)}\t{item.m_id}\t{Language.GetString(item.m_description_code)}\t{item.m_description_code}");
+        foreach (var item in AppMainScript.Ref.m_parameters.m_csvbItemDataOther.m_params) {
+            Plugin.ITEM_LOOKUP[Language.GetString(item.id)] = item.id;
+            // //Plugin.Logger.LogInfo($"{Language.GetString(item.m_id)}\t{item.m_id}\t{Language.GetString(item.m_description_code)}\t{item.m_description_code}");
         }
     }
 }
@@ -171,11 +166,8 @@ public static class Patch_uCommonSelectWindowPanel_Setup
         Plugin.selected_option = -1;
 
         if (Plugin.town_material_window_types.Contains(window_type)) {
-            TownMaterialDataAccess m_materialData = (TownMaterialDataAccess)Traverse.Create(typeof(StorageData)).Property("m_materialData").GetValue();
-            dynamic materialList = Traverse.Create(m_materialData).Property("m_materialDatas").GetValue();
-            
             Plugin.town_materials.Clear();
-            foreach (var material in materialList) {
+            foreach (var material in StorageData.m_materialData.m_materialDatas) {
                 string key = Language.GetString(material.m_id);
                 if (!string.IsNullOrEmpty(key))
                     Plugin.town_materials[key] = material.m_material_num;
@@ -183,11 +175,10 @@ public static class Patch_uCommonSelectWindowPanel_Setup
         }
 
         if (Plugin.player_inventory_window_types.Contains(window_type)) {
-            ItemStorageData m_ItemStorageData = (ItemStorageData)Traverse.Create(typeof(StorageData)).Property("m_ItemStorageData").GetValue();
-            dynamic m_itemDataListTbl = Traverse.Create(m_ItemStorageData).Property("m_itemDataListTbl").GetValue();
+            dynamic itemList = StorageData.m_ItemStorageData.m_itemDataListTbl[(int)ItemStorageData.StorageType.PLAYER].ToArray();
             
             Plugin.player_items.Clear();
-            foreach (var item in m_itemDataListTbl[(int)ItemStorageData.StorageType.PLAYER].ToArray()) {
+            foreach (var item in itemList) {
                 string key = Language.GetString(item.m_itemID);
                 if (!string.IsNullOrEmpty(key))
                     Plugin.player_items[key] = item.m_itemNum;
@@ -200,25 +191,24 @@ public static class Patch_uCommonSelectWindowPanel_Setup
 public static class Patch_uCommonSelectWindowPanel_Update
 {
     public static void SetCaptionText(uCommonSelectWindowPanelCaption captionPanel, string replace, string with) {
-        Text captionText = (Text)Traverse.Create(captionPanel).Property("m_text").GetValue();
+        Text captionText = captionPanel.m_text;
         UtilityScript.SetLangButtonText(ref captionText, "cw_caption_0");
         captionText.text = captionText.text.Replace(replace, with);
     }
 
     public static void Postfix(uCommonSelectWindowPanel __instance) {
-        ParameterCommonSelectWindowMode.WindowType window_type = (ParameterCommonSelectWindowMode.WindowType)Traverse.Create(__instance).Property("m_windowType").GetValue();
+        dynamic window_type = __instance.m_windowType;
         if (!Plugin.windows_we_care_about.Contains(window_type))
             return;
 
-        uItemBase panel_item = (uItemBase)Traverse.Create(__instance).Property("m_itemPanel").GetValue();
-        int selected_option = (int)Traverse.Create(panel_item).Property("m_selectNo").GetValue();
+        int selected_option = __instance.m_itemPanel.m_selectNo;
         // Weird special-case during Sunday trades, the window_list has an extra element in the middle of the list throwing off the index
         // Temp-solution: +1 to "selected_option" so we can pull the correct item
-        if (Plugin.sunday_trade_window_types.Contains(window_type) && selected_option > 2)
+        if (Array.Exists(Plugin.sunday_trade_window_types, x => x == window_type) && selected_option > 2)
             selected_option += 1;
 
         if (Plugin.selected_recipe.Any()) {
-            var itemCollection = Plugin.player_inventory_window_types.Contains(window_type) ? Plugin.player_items : Plugin.town_materials;
+            var itemCollection = Array.Exists(Plugin.player_inventory_window_types, x => x == window_type) ? Plugin.player_items : Plugin.town_materials;
             int max_num_exchanges = Plugin.selected_recipe.Select(x => itemCollection[(string)x.Item1] / (int)x.Item2).Min();;
             int num_exchanges = Plugin.num_exchanges;
             if (PadManager.IsTrigger(PadManager.BUTTON.bSquare))
@@ -234,8 +224,7 @@ public static class Patch_uCommonSelectWindowPanel_Update
             if (num_exchanges != Plugin.num_exchanges)
                 CriSoundManager.PlayCommonSe("S_005");
             Plugin.num_exchanges = num_exchanges;
-            uCommonSelectWindowPanelCaption captionPanel = (uCommonSelectWindowPanelCaption)Traverse.Create(__instance).Property("m_captionPanel").GetValue();
-            SetCaptionText(captionPanel, "OK", $"Exchange x{num_exchanges}");
+            SetCaptionText(__instance.m_captionPanel, "OK", $"Exchange x{num_exchanges}");
         }
 
         if (selected_option == Plugin.selected_option)
@@ -243,31 +232,32 @@ public static class Patch_uCommonSelectWindowPanel_Update
 
         Plugin.selected_option = selected_option;
         Plugin.num_exchanges = 1;
-        Plugin.Logger.LogInfo($"selected_option {Plugin.selected_option}");
-        Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow> window_list = (Il2CppSystem.Collections.Generic.List<ParameterCommonSelectWindow>)Traverse.Create(__instance).Property("m_paramCommonSelectWindowList").GetValue();
-        ParameterCommonSelectWindow window = window_list[selected_option];
-        Plugin.Logger.LogInfo($"window {window}");
-        string scriptCommand = (string)Traverse.Create(window).Property("m_scriptCommand").GetValue();
-        Plugin.Logger.LogInfo($"scriptCommand {scriptCommand}");
+        //Plugin.Logger.LogInfo($"selected_option {Plugin.selected_option}");
+
+        dynamic window = __instance.m_paramCommonSelectWindowList[selected_option];
+        //Plugin.Logger.LogInfo($"window {window}");
+        string scriptCommand = window.m_scriptCommand;
+        //Plugin.Logger.LogInfo($"scriptCommand {scriptCommand}");
         string scriptType = scriptCommand.Split("_")[0];
-        Plugin.Logger.LogInfo($"scriptType {scriptType}");
+        //Plugin.Logger.LogInfo($"scriptType {scriptType}");
         
         Plugin.selected_recipe.Clear();
-        Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
-        Plugin.Logger.LogInfo($"window_type {window_type}");
-        if (Plugin.town_material_window_types.Contains(window_type)) {
-            uint item_id = (uint)Traverse.Create(window).Property("m_select_item1").GetValue();
-            Plugin.Logger.LogInfo($"item_id {item_id}");
+        //Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
+        //Plugin.Logger.LogInfo($"window_type {window_type}");
+        if (Array.Exists(Plugin.town_material_window_types, x => x == window_type)) {
+            uint item_id = window.m_select_item1;
+            //Plugin.Logger.LogInfo($"item_id {item_id}");
             Plugin.selected_recipe.Add((Language.GetString(item_id), 5));
-            Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
+            //Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
         }
-        if (Plugin.player_inventory_window_types.Contains(window_type)) {
+        if (Array.Exists(Plugin.player_inventory_window_types, x => x == window_type)) {
+            //Plugin.Logger.LogInfo($"TEST {window.m_select_item1}");
             (string, (string, int)[] Input) recipe = Plugin.lab_recipes[selected_option];
-            Plugin.Logger.LogInfo($"recipe {recipe}");
+            //Plugin.Logger.LogInfo($"recipe {recipe}");
             foreach ((string name, int count) item in recipe.Input) {
                 Plugin.selected_recipe.Add((item.name, (uint)item.count));
             }
-            Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
+            //Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
         }
     }
 }
@@ -288,37 +278,63 @@ public static class Patch_CScenarioScript_CallCmdBlockCommonSelectWindow
 }
 
 [HarmonyPatch]
-public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
+public static class Patch_UtilityScript_IsListActiveRef
 {
     [HarmonyTargetMethod]
-    public static MethodBase TargetMethod(Harmony instance) {
-        return Plugin.GetOriginalMethod("CScenarioScriptBase", "CallAllCsvbBlock");
+    public static MethodInfo TargetMethod(Harmony instance) {
+        return Plugin.GetOriginalMethod("uCommonSelectWindowPanelItem", "SetParamList");
     }
 
-    public static void Postfix(string _blockId, dynamic __instance) {
-        // if (string.IsNullOrEmpty(_blockId))
-        //     return;
-        // Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase__CallCsvbBlock");
-        // Plugin.Logger.LogInfo($"__instance {__instance}");
-        // Plugin.Logger.LogInfo($"_blockId {_blockId}");
+    public static void Postfix(List<ItemData> list, List<ParameterCommonSelectWindow> param_list, dynamic __instance) {
+        Plugin.Logger.LogInfo($"__instance {__instance}");
+        
+        Plugin.Logger.LogInfo($"list {list}");
+        foreach (var var in list)
+            Plugin.Logger.LogInfo($"{var}");
+        Plugin.Logger.LogInfo($"param_list {param_list}");
+        foreach (var var in param_list)
+            Plugin.Logger.LogInfo($"{var}");
+        
+        Plugin.Logger.LogInfo($"m_uCommonSelectWindowModeTbl {__instance.m_uCommonSelectWindowModeTbl}");
+        foreach (dynamic var in __instance.m_uCommonSelectWindowModeTbl) {
+            Plugin.Logger.LogInfo($"\t{var}");
+        }
     }
 }
 
-[HarmonyPatch]
-public static class Patch_CScenarioScriptBase_CallCsvbBlock
-{
-    [HarmonyTargetMethod]
-    public static MethodBase TargetMethod(Harmony instance) {
-        return Plugin.GetOriginalMethod("CScenarioScriptBase", "CallCsvbBlock");
-    }
 
-    public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
-        // for (int i = 0; i < Plugin.selected_item.num_exchanges - 1; i++) {
-        //     Plugin.original_CallCmdBlockCommonSelectWindow.Invoke(__instance, new object[] { __instance, _param });
-        // }
-        // Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase_CallCsvbBlock");
-        // Plugin.Logger.LogInfo($"__instance {__instance}");
-        // Plugin.Logger.LogInfo($"_csvbId {_csvbId}");
-        // Plugin.Logger.LogInfo($"_blockId {_blockId}");
-    }
-}
+// [HarmonyPatch]
+// public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
+// {
+//     [HarmonyTargetMethod]
+//     public static MethodBase TargetMethod(Harmony instance) {
+//         return Plugin.GetOriginalMethod("CScenarioScriptBase", "CallAllCsvbBlock");
+//     }
+
+//     public static void Postfix(string _blockId, dynamic __instance) {
+//         // if (string.IsNullOrEmpty(_blockId))
+//         //     return;
+//         // //Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase__CallCsvbBlock");
+//         // //Plugin.Logger.LogInfo($"__instance {__instance}");
+//         // //Plugin.Logger.LogInfo($"_blockId {_blockId}");
+//     }
+// }
+
+// [HarmonyPatch]
+// public static class Patch_CScenarioScriptBase_CallCsvbBlock
+// {
+//     [HarmonyTargetMethod]
+//     public static MethodBase TargetMethod(Harmony instance) {
+//         return Plugin.GetOriginalMethod("CScenarioScriptBase", "CallCsvbBlock");
+//     }
+
+//     public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
+//         // for (int i = 0; i < Plugin.selected_item.num_exchanges - 1; i++) {
+//         //     Plugin.original_CallCmdBlockCommonSelectWindow.Invoke(__instance, new object[] { __instance, _param });
+//         // }
+//         // //Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase_CallCsvbBlock");
+//         // //Plugin.Logger.LogInfo($"__instance {__instance}");
+//         // //Plugin.Logger.LogInfo($"_csvbId {_csvbId}");
+//         // //Plugin.Logger.LogInfo($"_blockId {_blockId}");
+//     }
+// }
