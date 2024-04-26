@@ -9,14 +9,14 @@ using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using HarmonyLib.Tools;
-using Il2CppInterop.Runtime.InteropTypes.Arrays;
+using Il2CppArrays = Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine.UI;
 
 /*
 TODO:
+    - Look into generating new panel to the right of screen kind of like a shop
     - Tweak Guardrmon exchange so that it works like the Gutsumon and Tyranmon (change panel item text to list ingredients)
-        - Need to find what function triggers to give the item to the player (after dialog) so I can shortcut it
-        - Tracking _csvId and _blockId from _CallCsvbBlock in CScenarioScriptBase seems promising. Maybe I can work back from those two IDs to the script name or function that triggers them
+        - !UtilityScript.IsListActiveRef<ItemData>(ref this.m_itemList, ref this.m_selectNo) check this method call. Maybe useful to "disable" options
     - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
     - Include keyboard equivalent of gamepad Square for maxing num_exchange
 
@@ -117,16 +117,7 @@ public class Plugin : BasePlugin
         ( "Medicine", new [] { ("Bandage", 5), ("Recovery Disk", 3) } )
     };
 
-    public static Dictionary<string, uint> lab_item_lookup = new Dictionary<string, uint>() {
-        { "Double Disk", 2257505834 },
-        { "Large Double Disk", 2257505833 },
-        { "Super Double Disk", 2257505832 },
-        { "Large Recovery Disk", 2240728255 },
-        { "Large MP Disk", 2257505838 },
-        { "Full Remedy Disk", 3595471592 },
-        { "Super Regen Disk", 3612249153 },
-        { "Medicine", 23724250 }
-    };
+    public static Dictionary<string, uint> ITEM_LOOKUP = new Dictionary<string, uint>();
 
     public static MethodInfo GetOriginalMethod(string className, string methodName)
     {
@@ -148,6 +139,26 @@ public class Plugin : BasePlugin
         Harmony harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
         Plugin.original_CallCmdBlockCommonSelectWindow = harmony.Patch(GetOriginalMethod("CScenarioScript", "CallCmdBlockCommonSelectWindow"));
         harmony.PatchAll();
+    }
+}
+
+[HarmonyPatch(typeof(AppMainScript), "_FinishedParameterLoad")]
+public static class Patch_AppMainScript__FinishedParameterLoad
+{
+    [HarmonyPrefix]
+    public static void Prefix()
+    {
+        Plugin.Logger.LogInfo("GRABBING SHIT!");
+
+        dynamic m_parameters = Traverse.Create(AppMainScript.Ref).Property("m_parameters").GetValue();
+        dynamic m_csvbItemDataOther = Traverse.Create(m_parameters).Property("m_csvbItemDataOther").GetValue();
+        dynamic m_params = m_csvbItemDataOther.m_params;
+        // ParameterItemData[] params = AppMainScript.Ref.parameters.csvbItemData.params;
+        Plugin.ITEM_LOOKUP.Clear();
+        foreach (var item in m_params) {
+            // Plugin.ITEM_LOOKUP[Language.GetString(item.id)] = item.id;
+            Plugin.Logger.LogInfo($"{Language.GetString(item.m_id)}\t{item.m_id}\t{Language.GetString(item.m_description_code)}\t{item.m_description_code}");
+        }
     }
 }
 
