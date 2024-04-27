@@ -15,7 +15,12 @@ using UnityEngine.UI;
 /*
 TODO:
     - What code handles disabling panel options and turning their text red in Gotsumon/Tyrannomon trades [uItemBase.SetItemContent???]
-    - Look into generating new panel to the right of screen kind of like a shop
+        - Ultimately handled by ParameterCommonSelectWindow.isCheckFormat. Approach to convert Guardromon:
+            - set ParameterCommonSelectWindow to active 
+            - set checkDataList (must pass GetCheckDataList). Can be done by setting m_select_mode, m_select_format, m_select_value1, m_select_item, m_select_digimon (set m_select_mode to 8)
+            - hook PostFix on isListCheckDataSelectModeActive, check for m_selet_mode = 8, and implement a new this.isPlayerHaveItem check
+    
+    Look into generating new panel to the right of screen kind of like a shop
     - Tweak Guardrmon exchange so that it works like the Gutsumon and Tyranmon (change panel item text to list ingredients)
         - !UtilityScript.IsListActiveRef<ItemData>(ref this.m_itemList, ref this.m_selectNo) check this method call. Maybe useful to "disable" options
     - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
@@ -277,28 +282,23 @@ public static class Patch_CScenarioScript_CallCmdBlockCommonSelectWindow
     }
 }
 
-[HarmonyPatch]
+[HarmonyPatch(typeof(uItemBase), "SetItemContent")]
+[HarmonyPatch(new Type[] { typeof(uItemParts), typeof(ItemData), typeof(ParameterItemData) }, new ArgumentType[] { ArgumentType.Ref, ArgumentType.Ref, ArgumentType.Ref } )]
 public static class Patch_UtilityScript_IsListActiveRef
 {
-    [HarmonyTargetMethod]
-    public static MethodInfo TargetMethod(Harmony instance) {
-        return Plugin.GetOriginalMethod("uCommonSelectWindowPanelItem", "SetParamList");
-    }
+    // [HarmonyTargetMethod]
+    // public static MethodInfo TargetMethod(Harmony instance) {
+    //     return Plugin.GetOriginalMethod("uItemBase", "SetItemContent");
+    // }
 
-    public static void Postfix(List<ItemData> list, List<ParameterCommonSelectWindow> param_list, dynamic __instance) {
-        Plugin.Logger.LogInfo($"__instance {__instance}");
-        
-        Plugin.Logger.LogInfo($"list {list}");
-        foreach (var var in list)
-            Plugin.Logger.LogInfo($"{var}");
-        Plugin.Logger.LogInfo($"param_list {param_list}");
-        foreach (var var in param_list)
-            Plugin.Logger.LogInfo($"{var}");
-        
-        Plugin.Logger.LogInfo($"m_uCommonSelectWindowModeTbl {__instance.m_uCommonSelectWindowModeTbl}");
-        foreach (dynamic var in __instance.m_uCommonSelectWindowModeTbl) {
-            Plugin.Logger.LogInfo($"\t{var}");
-        }
+    public static void Postfix(uItemParts item, ItemData item_data, ParameterItemData param_item_data, dynamic __instance) {
+        Plugin.Logger.LogInfo($"[{item_data.GetState()}] \"{item.m_name.text}\" unavailable?: {__instance.UnavailableItem(ref item_data, ref param_item_data)}");
+
+        var param_common = item_data.m_paramCommonSelectWindowData;
+        Plugin.Logger.LogInfo($"IsSelectModeActive {param_common.IsSelectModeActive()}");
+        Plugin.Logger.LogInfo($"m_select_1 {param_common.m_select_mode1} {param_common.m_select_format1} {param_common.m_select_value1} {param_common.m_select_item1} {param_common.m_select_digimon1}");
+        Plugin.Logger.LogInfo($"m_select_2 {param_common.m_select_mode2} {param_common.m_select_format2} {param_common.m_select_value2} {param_common.m_select_item2} {param_common.m_select_digimon2}");
+        Plugin.Logger.LogInfo($"");
     }
 }
 
