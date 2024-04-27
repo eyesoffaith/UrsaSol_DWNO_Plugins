@@ -9,20 +9,12 @@ using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using HarmonyLib.Tools;
-using Il2CppArrays = Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine.UI;
 
 /*
 TODO:
-    - What code handles disabling panel options and turning their text red in Gotsumon/Tyrannomon trades [uItemBase.SetItemContent???]
-        - Ultimately handled by ParameterCommonSelectWindow.isCheckFormat. Approach to convert Guardromon:
-            - set ParameterCommonSelectWindow to active 
-            - set checkDataList (must pass GetCheckDataList). Can be done by setting m_select_mode, m_select_format, m_select_value1, m_select_item, m_select_digimon (set m_select_mode to 8)
-            - hook PostFix on isListCheckDataSelectModeActive, check for m_selet_mode = 8, and implement a new this.isPlayerHaveItem check
-    
-    Look into generating new panel to the right of screen kind of like a shop
-    - Tweak Guardrmon exchange so that it works like the Gutsumon and Tyranmon (change panel item text to list ingredients)
-        - !UtilityScript.IsListActiveRef<ItemData>(ref this.m_itemList, ref this.m_selectNo) check this method call. Maybe useful to "disable" options
+    - Get rid of 2nd prompt from Guadromon conversation to remove button presses (make it like Gutsumon/Tyrannomon)
+    - Look into generating new panel to the right of screen kind of like a shop
     - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
     - Include keyboard equivalent of gamepad Square for maxing num_exchange
 
@@ -86,17 +78,17 @@ public class Plugin : BasePlugin
     public static ManualLogSource Logger;
     public static Type CScenarioScript;
 
-    public static ParameterCommonSelectWindowMode.WindowType[] sunday_trade_window_types = new [] {
+    public static List<ParameterCommonSelectWindowMode.WindowType> sunday_trade_window_types = new List<ParameterCommonSelectWindowMode.WindowType> {
         ParameterCommonSelectWindowMode.WindowType.MaterialChange04,
         ParameterCommonSelectWindowMode.WindowType.TreasureMaterial
     };
-    public static ParameterCommonSelectWindowMode.WindowType[] town_material_window_types = new [] {
+    public static List<ParameterCommonSelectWindowMode.WindowType> town_material_window_types = new List<ParameterCommonSelectWindowMode.WindowType> {
         ParameterCommonSelectWindowMode.WindowType.MaterialChange01,
         ParameterCommonSelectWindowMode.WindowType.MaterialChange02,
         ParameterCommonSelectWindowMode.WindowType.MaterialChange03,
         ParameterCommonSelectWindowMode.WindowType.AdventureInfo,
-    }.Concat(sunday_trade_window_types).ToArray();
-    public static ParameterCommonSelectWindowMode.WindowType[] player_inventory_window_types = new [] {
+    }.Concat(sunday_trade_window_types).ToList();
+    public static List<ParameterCommonSelectWindowMode.WindowType> player_inventory_window_types = new List<ParameterCommonSelectWindowMode.WindowType> {
         ParameterCommonSelectWindowMode.WindowType._03
     };
 
@@ -107,7 +99,7 @@ public class Plugin : BasePlugin
     public static List<ParameterCommonSelectWindowMode.WindowType> windows_we_care_about = Plugin.town_material_window_types.Concat(Plugin.player_inventory_window_types).ToList();
     public static Dictionary<string, int> town_materials = new Dictionary<string, int>();
     public static Dictionary<string, int> player_items = new Dictionary<string, int>();
-    public static List<(string, uint)> selected_recipe = new List<(string, uint)>();
+    public static List<(string, int)> selected_recipe = new List<(string, int)>();
     public static int selected_option;
     public static int num_exchanges;
     public static MethodInfo original_CallCmdBlockCommonSelectWindow;
@@ -155,9 +147,9 @@ public static class Patch_AppMainScript__FinishedParameterLoad
     public static void Prefix()
     {
         Plugin.ITEM_LOOKUP.Clear();
-        foreach (var item in AppMainScript.Ref.m_parameters.m_csvbItemDataOther.m_params) {
+        foreach (var item in AppMainScript.Ref.m_parameters.m_csvbItemData.m_params) {
             Plugin.ITEM_LOOKUP[Language.GetString(item.id)] = item.id;
-            // //Plugin.Logger.LogInfo($"{Language.GetString(item.m_id)}\t{item.m_id}\t{Language.GetString(item.m_description_code)}\t{item.m_description_code}");
+            //Plugin.Logger.LogInfo($"{Language.GetString(item.m_id)}\t{item.m_id}\t{Language.GetString(item.m_description_code)}\t{item.m_description_code}");
         }
     }
 }
@@ -189,6 +181,24 @@ public static class Patch_uCommonSelectWindowPanel_Setup
                     Plugin.player_items[key] = item.m_itemNum;
             }
         }
+
+        if (Plugin.player_inventory_window_types.Contains(window_type)) {
+            for (int i = 0; i < __instance.m_paramCommonSelectWindowList.Count; i++){
+                (string, (string name , int count)[] items) recipe = Plugin.lab_recipes[i];
+                var windowOptionParams = __instance.m_paramCommonSelectWindowList[i];
+
+                windowOptionParams.m_select_mode1 = 8;
+                windowOptionParams.m_select_format1 = 1;
+                windowOptionParams.m_select_item1 = Plugin.ITEM_LOOKUP[recipe.items[0].name];
+                windowOptionParams.m_select_value1 = recipe.items[0].count;
+                if (recipe.items.Count() > 1) {
+                    windowOptionParams.m_select_mode2 = 8;
+                    windowOptionParams.m_select_format2 = 1;
+                    windowOptionParams.m_select_item2 = Plugin.ITEM_LOOKUP[recipe.items[1].name];
+                    windowOptionParams.m_select_value2 = recipe.items[1].count;
+                }
+            }
+        }
     }
 }
 
@@ -209,11 +219,11 @@ public static class Patch_uCommonSelectWindowPanel_Update
         int selected_option = __instance.m_itemPanel.m_selectNo;
         // Weird special-case during Sunday trades, the window_list has an extra element in the middle of the list throwing off the index
         // Temp-solution: +1 to "selected_option" so we can pull the correct item
-        if (Array.Exists(Plugin.sunday_trade_window_types, x => x == window_type) && selected_option > 2)
+        if (Plugin.town_material_window_types.Contains(window_type) && selected_option > 2)
             selected_option += 1;
 
         if (Plugin.selected_recipe.Any()) {
-            var itemCollection = Array.Exists(Plugin.player_inventory_window_types, x => x == window_type) ? Plugin.player_items : Plugin.town_materials;
+            var itemCollection = Plugin.player_inventory_window_types.Contains(window_type) ? Plugin.player_items : Plugin.town_materials;
             int max_num_exchanges = Plugin.selected_recipe.Select(x => itemCollection[(string)x.Item1] / (int)x.Item2).Min();;
             int num_exchanges = Plugin.num_exchanges;
             if (PadManager.IsTrigger(PadManager.BUTTON.bSquare))
@@ -239,9 +249,9 @@ public static class Patch_uCommonSelectWindowPanel_Update
         Plugin.num_exchanges = 1;
         //Plugin.Logger.LogInfo($"selected_option {Plugin.selected_option}");
 
-        dynamic window = __instance.m_paramCommonSelectWindowList[selected_option];
+        dynamic windowOptionParams = __instance.m_paramCommonSelectWindowList[selected_option];
         //Plugin.Logger.LogInfo($"window {window}");
-        string scriptCommand = window.m_scriptCommand;
+        string scriptCommand = windowOptionParams.m_scriptCommand;
         //Plugin.Logger.LogInfo($"scriptCommand {scriptCommand}");
         string scriptType = scriptCommand.Split("_")[0];
         //Plugin.Logger.LogInfo($"scriptType {scriptType}");
@@ -249,18 +259,18 @@ public static class Patch_uCommonSelectWindowPanel_Update
         Plugin.selected_recipe.Clear();
         //Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
         //Plugin.Logger.LogInfo($"window_type {window_type}");
-        if (Array.Exists(Plugin.town_material_window_types, x => x == window_type)) {
-            uint item_id = window.m_select_item1;
+        if (Plugin.town_material_window_types.Contains(window_type)) {
+            uint item_id = windowOptionParams.m_select_item1;
             //Plugin.Logger.LogInfo($"item_id {item_id}");
-            Plugin.selected_recipe.Add((Language.GetString(item_id), 5));
+            Plugin.selected_recipe.Add((Language.GetString(item_id), windowOptionParams.m_select_value1));
             //Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
         }
-        if (Array.Exists(Plugin.player_inventory_window_types, x => x == window_type)) {
+        if (Plugin.player_inventory_window_types.Contains(window_type)) {
             //Plugin.Logger.LogInfo($"TEST {window.m_select_item1}");
             (string, (string, int)[] Input) recipe = Plugin.lab_recipes[selected_option];
             //Plugin.Logger.LogInfo($"recipe {recipe}");
             foreach ((string name, int count) item in recipe.Input) {
-                Plugin.selected_recipe.Add((item.name, (uint)item.count));
+                Plugin.selected_recipe.Add((item.name, item.count));
             }
             //Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
         }
@@ -286,22 +296,45 @@ public static class Patch_CScenarioScript_CallCmdBlockCommonSelectWindow
 [HarmonyPatch(new Type[] { typeof(uItemParts), typeof(ItemData), typeof(ParameterItemData) }, new ArgumentType[] { ArgumentType.Ref, ArgumentType.Ref, ArgumentType.Ref } )]
 public static class Patch_UtilityScript_IsListActiveRef
 {
-    // [HarmonyTargetMethod]
-    // public static MethodInfo TargetMethod(Harmony instance) {
-    //     return Plugin.GetOriginalMethod("uItemBase", "SetItemContent");
-    // }
-
     public static void Postfix(uItemParts item, ItemData item_data, ParameterItemData param_item_data, dynamic __instance) {
-        Plugin.Logger.LogInfo($"[{item_data.GetState()}] \"{item.m_name.text}\" unavailable?: {__instance.UnavailableItem(ref item_data, ref param_item_data)}");
+        if (item_data.GetState() != ItemData.State.ParamCommonSelectWindow)
+            return;
+
+        string isAvailable = __instance.UnavailableItem(ref item_data, ref param_item_data) ? "Unavailable" : "Available";
+        Plugin.Logger.LogInfo($"[{item_data.GetState()}] [{isAvailable}] \"{item.m_name.text}\"");
 
         var param_common = item_data.m_paramCommonSelectWindowData;
-        Plugin.Logger.LogInfo($"IsSelectModeActive {param_common.IsSelectModeActive()}");
         Plugin.Logger.LogInfo($"m_select_1 {param_common.m_select_mode1} {param_common.m_select_format1} {param_common.m_select_value1} {param_common.m_select_item1} {param_common.m_select_digimon1}");
         Plugin.Logger.LogInfo($"m_select_2 {param_common.m_select_mode2} {param_common.m_select_format2} {param_common.m_select_value2} {param_common.m_select_item2} {param_common.m_select_digimon2}");
         Plugin.Logger.LogInfo($"");
     }
 }
 
+[HarmonyPatch]
+// [HarmonyPatch(typeof(ParameterCommonSelectWindow), "isListCheckDataSelectModeActive")]
+public static class Patch_ParameterCommonSelectWindow_isListCheckDataSelectModeActive
+{
+    public static MethodBase TargetMethod(Harmony instance) {
+        return Plugin.GetOriginalMethod("ParameterCommonSelectWindow", "IsSelectModeActive");
+    }
+
+    public static bool isPlayerHaveItem(ParameterCommonSelectWindow.CheckData checkData) {
+        return Plugin.player_items[Language.GetString(checkData.m_item)] >= checkData.m_value;
+    }
+
+    public static void Postfix(ref dynamic __result, ParameterCommonSelectWindow __instance) {
+        dynamic checkDataList = __instance.GetCheckDataList(ParameterCommonSelectWindow.CheckDataType.SelectData).ToArray();
+
+        foreach (var checkData in checkDataList) {
+            if (checkData.m_mode == 8) {
+                __result = isPlayerHaveItem(checkData);
+            }
+            if (!__result){
+                break;
+            }
+        }
+    }
+}
 
 // [HarmonyPatch]
 // public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
