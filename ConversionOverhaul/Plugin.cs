@@ -14,6 +14,11 @@ using UnityEngine.UI;
 /*
 TODO:
     - Get rid of 2nd prompt from Guadromon conversation to remove button presses (make it like Gutsumon/Tyrannomon)
+        - Can skip 2nd prompt entirely by running different scriptCommand.
+        - Find code responsible for displaying them item acquired. Would be really nice to simply not run any script and display that item acquisition panel (w/item icon and count)
+            - not uResultPanelGet (that is for setting data for item's dropped from enemies after battle)
+            - looks like a uCommonMessageWindow is initialized when the item acquisition window pops up? Not sure though
+            - don't think it has anything to do with CarePanel
     - Look into generating new panel to the right of screen kind of like a shop
     - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
     - Include keyboard equivalent of gamepad Square for maxing num_exchange
@@ -128,7 +133,7 @@ public class Plugin : BasePlugin
         HarmonyFileLog.Enabled = true;
 
         // Plugin startup logic
-        //Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
+        Plugin.Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
         this.Awake();
     }
 
@@ -143,13 +148,12 @@ public class Plugin : BasePlugin
 [HarmonyPatch(typeof(AppMainScript), "_FinishedParameterLoad")]
 public static class Patch_AppMainScript__FinishedParameterLoad
 {
-    [HarmonyPrefix]
-    public static void Prefix()
+    public static void Postfix()
     {
         Plugin.ITEM_LOOKUP.Clear();
         foreach (var item in AppMainScript.Ref.m_parameters.m_csvbItemData.m_params) {
             Plugin.ITEM_LOOKUP[Language.GetString(item.id)] = item.id;
-            //Plugin.Logger.LogInfo($"{Language.GetString(item.m_id)}\t{item.m_id}\t{Language.GetString(item.m_description_code)}\t{item.m_description_code}");
+            // Plugin.Logger.LogInfo($"{Language.GetString(item.m_id)}\t{item.m_id}");
         }
     }
 }
@@ -278,41 +282,78 @@ public static class Patch_uCommonSelectWindowPanel_Update
 }
 
 [HarmonyPatch]
-public static class Patch_CScenarioScript_CallCmdBlockCommonSelectWindow
+public static class Patch_CScenarioScriptBase_CallCsvbBlock
 {
     [HarmonyTargetMethod]
     public static MethodBase TargetMethod(Harmony instance) {
-        return Plugin.GetOriginalMethod("CScenarioScript", "CallCmdBlockCommonSelectWindow");
+        return Plugin.GetOriginalMethod("CScenarioScriptBase", "CallCsvbBlock");
     }
 
-    public static void Postfix(ParameterCommonSelectWindow _param, dynamic __instance) {
-        for (int i = 0; i < Plugin.num_exchanges - 1; i++) {
-            Plugin.original_CallCmdBlockCommonSelectWindow.Invoke(__instance, new object[] { __instance, _param });
-        }
-    }
-}
-
-[HarmonyPatch(typeof(uItemBase), "SetItemContent")]
-[HarmonyPatch(new Type[] { typeof(uItemParts), typeof(ItemData), typeof(ParameterItemData) }, new ArgumentType[] { ArgumentType.Ref, ArgumentType.Ref, ArgumentType.Ref } )]
-public static class Patch_UtilityScript_IsListActiveRef
-{
-    public static void Postfix(uItemParts item, ItemData item_data, ParameterItemData param_item_data, dynamic __instance) {
-        if (item_data.GetState() != ItemData.State.ParamCommonSelectWindow)
-            return;
-
-        string isAvailable = __instance.UnavailableItem(ref item_data, ref param_item_data) ? "Unavailable" : "Available";
-        Plugin.Logger.LogInfo($"[{item_data.GetState()}] [{isAvailable}] \"{item.m_name.text}\"");
-
-        var param_common = item_data.m_paramCommonSelectWindowData;
-        Plugin.Logger.LogInfo($"m_select_1 {param_common.m_select_mode1} {param_common.m_select_format1} {param_common.m_select_value1} {param_common.m_select_item1} {param_common.m_select_digimon1}");
-        Plugin.Logger.LogInfo($"m_select_2 {param_common.m_select_mode2} {param_common.m_select_format2} {param_common.m_select_value2} {param_common.m_select_item2} {param_common.m_select_digimon2}");
-        Plugin.Logger.LogInfo($"");
+    public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
+        Plugin.Logger.LogInfo($"_csvbId {_csvbId} _blockId {_blockId}");
     }
 }
 
 [HarmonyPatch]
-// [HarmonyPatch(typeof(ParameterCommonSelectWindow), "isListCheckDataSelectModeActive")]
-public static class Patch_ParameterCommonSelectWindow_isListCheckDataSelectModeActive
+public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
+{
+    [HarmonyTargetMethod]
+    public static MethodBase TargetMethod(Harmony instance) {
+        return Plugin.GetOriginalMethod("CScenarioScriptBase", "CallAllCsvbBlock");
+    }
+
+    public static void Postfix(string _blockId, dynamic __instance) {
+        Plugin.Logger.LogInfo($"_blockId {_blockId}");
+    }
+}
+
+
+// [HarmonyPatch]
+// public static class Patch_CScenarioScript_CallCmdBlockCommonSelectWindow
+// {
+//     [HarmonyTargetMethod]
+//     public static MethodBase TargetMethod(Harmony instance) {
+//         return Plugin.GetOriginalMethod("CScenarioScript", "CallCmdBlockCommonSelectWindow");
+//     }
+
+//     public static bool Prefix(ParameterCommonSelectWindow _param, dynamic __instance) {
+//         string scriptCommand = _param.m_scriptCommand;
+//         string scriptType = scriptCommand.Split("_")[0];
+//         if (scriptType == "D034") {
+//             string scriptID = scriptCommand.Substring(scriptCommand.Length - 2);
+//             scriptCommand = scriptCommand.Replace(scriptID, (Int32.Parse(scriptID) * 10).ToString());
+//         }
+
+//         Plugin.Logger.LogInfo($"Calling {scriptCommand} x{Plugin.num_exchanges} times");
+//         for (int i = 0; i < Plugin.num_exchanges; i++) {
+//             __instance.CallCmdBlockChapter(scriptCommand);
+//             // Plugin.original_CallCmdBlockCommonSelectWindow.Invoke(__instance, new object[] { __instance, _param });
+//         }
+
+//         return false;
+//     }
+// }
+
+// [HarmonyPatch(typeof(uItemBase), "SetItemContent")]
+// [HarmonyPatch(new Type[] { typeof(uItemParts), typeof(ItemData), typeof(ParameterItemData) }, new ArgumentType[] { ArgumentType.Ref, ArgumentType.Ref, ArgumentType.Ref } )]
+// public static class Patch_UtilityScript_IsListActiveRef
+// {
+//     public static void Postfix(uItemParts item, ItemData item_data, ParameterItemData param_item_data, dynamic __instance) {
+//         if (item_data.GetState() != ItemData.State.ParamCommonSelectWindow)
+//             return;
+
+//         string isAvailable = __instance.UnavailableItem(ref item_data, ref param_item_data) ? "Unavailable" : "Available";
+//         Plugin.Logger.LogInfo($"[{item_data.GetState()}] [{isAvailable}] \"{item.m_name.text}\"");
+
+//         var param_common = item_data.m_paramCommonSelectWindowData;
+//         Plugin.Logger.LogInfo($"m_select_1 {param_common.m_select_mode1} {param_common.m_select_format1} {param_common.m_select_value1} {param_common.m_select_item1} {param_common.m_select_digimon1}");
+//         Plugin.Logger.LogInfo($"m_select_2 {param_common.m_select_mode2} {param_common.m_select_format2} {param_common.m_select_value2} {param_common.m_select_item2} {param_common.m_select_digimon2}");
+//         Plugin.Logger.LogInfo($"");
+//     }
+// }
+
+[HarmonyPatch]
+public static class Patch_ParameterCommonSelectWindow_IsSelectModeActive
 {
     public static MethodBase TargetMethod(Harmony instance) {
         return Plugin.GetOriginalMethod("ParameterCommonSelectWindow", "IsSelectModeActive");
@@ -335,6 +376,30 @@ public static class Patch_ParameterCommonSelectWindow_isListCheckDataSelectModeA
         }
     }
 }
+
+[HarmonyPatch(typeof(uCommonMessageWindow), "Initialize")]
+public static class Test
+{
+    public static void Postfix(int index, dynamic __instance)
+    {
+        Plugin.Logger.LogInfo($"message window enabled");
+        Plugin.Logger.LogInfo($"index {index}");
+        Plugin.Logger.LogInfo($"__instance {__instance}");
+    }
+}
+
+[HarmonyPatch(typeof(uCarePanelItem), "setDumpItemText")]
+public static class Test2
+{
+    public static void Postfix(string dump_item_message, ItemData select_item, dynamic __instance)
+    {
+        Plugin.Logger.LogInfo($"message window enabled");
+        Plugin.Logger.LogInfo($"__instance {__instance}");
+        Plugin.Logger.LogInfo($"{Language.GetString(select_item.m_itemID)}");
+        Plugin.Logger.LogInfo(dump_item_message);
+    }
+}
+
 
 // [HarmonyPatch]
 // public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
