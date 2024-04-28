@@ -388,15 +388,15 @@ public static class Test
     }
 }
 
-[HarmonyPatch(typeof(uCarePanelItem), "setDumpItemText")]
+[HarmonyPatch(typeof(uCommonMessageWindow), "SetMessage")]
 public static class Test2
 {
-    public static void Postfix(string dump_item_message, ItemData select_item, dynamic __instance)
+    public static void Postfix(string str, uCommonMessageWindow.Pos window_pos, dynamic __instance)
     {
         Plugin.Logger.LogInfo($"message window enabled");
         Plugin.Logger.LogInfo($"__instance {__instance}");
-        Plugin.Logger.LogInfo($"{Language.GetString(select_item.m_itemID)}");
-        Plugin.Logger.LogInfo(dump_item_message);
+        Plugin.Logger.LogInfo($"window_pos {window_pos}");
+        Plugin.Logger.LogInfo(str);
     }
 }
 
