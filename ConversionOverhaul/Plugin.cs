@@ -9,6 +9,7 @@ using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using HarmonyLib.Tools;
+using UnityEngine;
 using UnityEngine.UI;
 
 /*
@@ -120,7 +121,7 @@ public class Plugin : BasePlugin
         ( "Medicine", new [] { ("Bandage", 5), ("Recovery Disk", 3) } )
     };
 
-    public static Dictionary<string, uint> ITEM_LOOKUP = new Dictionary<string, uint>();
+    public static Dictionary<string, ParameterItemData> ITEM_LOOKUP = new Dictionary<string, ParameterItemData>();
 
     public static MethodInfo GetOriginalMethod(string className, string methodName)
     {
@@ -152,7 +153,7 @@ public static class Patch_AppMainScript__FinishedParameterLoad
     {
         Plugin.ITEM_LOOKUP.Clear();
         foreach (var item in AppMainScript.Ref.m_parameters.m_csvbItemData.m_params) {
-            Plugin.ITEM_LOOKUP[Language.GetString(item.id)] = item.id;
+            Plugin.ITEM_LOOKUP[Language.GetString(item.id)] = item;
             // Plugin.Logger.LogInfo($"{Language.GetString(item.m_id)}\t{item.m_id}");
         }
     }
@@ -193,12 +194,12 @@ public static class Patch_uCommonSelectWindowPanel_Setup
 
                 windowOptionParams.m_select_mode1 = 8;
                 windowOptionParams.m_select_format1 = 1;
-                windowOptionParams.m_select_item1 = Plugin.ITEM_LOOKUP[recipe.items[0].name];
+                windowOptionParams.m_select_item1 = Plugin.ITEM_LOOKUP[recipe.items[0].name].m_id;
                 windowOptionParams.m_select_value1 = recipe.items[0].count;
                 if (recipe.items.Count() > 1) {
                     windowOptionParams.m_select_mode2 = 8;
                     windowOptionParams.m_select_format2 = 1;
-                    windowOptionParams.m_select_item2 = Plugin.ITEM_LOOKUP[recipe.items[1].name];
+                    windowOptionParams.m_select_item2 = Plugin.ITEM_LOOKUP[recipe.items[1].name].m_id;
                     windowOptionParams.m_select_value2 = recipe.items[1].count;
                 }
             }
@@ -377,62 +378,41 @@ public static class Patch_ParameterCommonSelectWindow_IsSelectModeActive
     }
 }
 
-[HarmonyPatch(typeof(uCommonMessageWindow), "Initialize")]
-public static class Test
+[HarmonyPatch(typeof(TalkMain), "CommonMessageWindow")]
+public static class Test3
 {
-    public static void Postfix(int index, dynamic __instance)
+    public static void Postfix(dynamic __instance)
     {
-        Plugin.Logger.LogInfo($"message window enabled");
-        Plugin.Logger.LogInfo($"index {index}");
+        Plugin.Logger.LogInfo($"TalkMain::CommonMessageWindow");
         Plugin.Logger.LogInfo($"__instance {__instance}");
+        uint itemID = Plugin.ITEM_LOOKUP["Meat"].m_id;
+        
+        Plugin.Logger.LogInfo($"{itemID}");
+
+        Plugin.Logger.LogInfo($"sprite {__instance.m_iconImage.sprite}");
+        Plugin.Logger.LogInfo($"sprite_replace {uItemBase.GetIconImage(ref itemID)}");
+        
+        __instance.m_iconImage.sprite = uItemBase.GetIconImage(ref itemID);
+        __instance.m_common_message_window.SetLangMessage("The aroma is intoxicating!", uCommonMessageWindow.Pos.Center);
+        // arg0 = "TOWN_TALK_D034_026";
+        // arg1 = $"ui/itemicons/{Plugin.ITEM_LOOKUP[item_name].m_iconName}";
+        // Plugin.Logger.LogInfo($"arg0 {arg0}");
+        // Plugin.Logger.LogInfo($"arg1 {arg1}");
     }
 }
 
-[HarmonyPatch(typeof(uCommonMessageWindow), "SetMessage")]
-public static class Test2
-{
-    public static void Postfix(string str, uCommonMessageWindow.Pos window_pos, dynamic __instance)
-    {
-        Plugin.Logger.LogInfo($"message window enabled");
-        Plugin.Logger.LogInfo($"__instance {__instance}");
-        Plugin.Logger.LogInfo($"window_pos {window_pos}");
-        Plugin.Logger.LogInfo(str);
-    }
-}
-
-
-// [HarmonyPatch]
-// public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
+// [HarmonyPatch(typeof(TalkMain), "SetItem")]
+// public static class Test4
 // {
-//     [HarmonyTargetMethod]
-//     public static MethodBase TargetMethod(Harmony instance) {
-//         return Plugin.GetOriginalMethod("CScenarioScriptBase", "CallAllCsvbBlock");
-//     }
+//     public static void Postfix(object[] __args, dynamic __instance)
+//     {
+//         Plugin.Logger.LogInfo($"TalkMain::SetItem");
+//         Plugin.Logger.LogInfo($"__instance {__instance}");
+//         Plugin.Logger.LogInfo(String.Join("\n", __args));
 
-//     public static void Postfix(string _blockId, dynamic __instance) {
-//         // if (string.IsNullOrEmpty(_blockId))
-//         //     return;
-//         // //Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase__CallCsvbBlock");
-//         // //Plugin.Logger.LogInfo($"__instance {__instance}");
-//         // //Plugin.Logger.LogInfo($"_blockId {_blockId}");
-//     }
-// }
+//         __args[0] = Plugin.ITEM_LOOKUP["Well Done Meat"].ToString();
 
-// [HarmonyPatch]
-// public static class Patch_CScenarioScriptBase_CallCsvbBlock
-// {
-//     [HarmonyTargetMethod]
-//     public static MethodBase TargetMethod(Harmony instance) {
-//         return Plugin.GetOriginalMethod("CScenarioScriptBase", "CallCsvbBlock");
-//     }
-
-//     public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
-//         // for (int i = 0; i < Plugin.selected_item.num_exchanges - 1; i++) {
-//         //     Plugin.original_CallCmdBlockCommonSelectWindow.Invoke(__instance, new object[] { __instance, _param });
-//         // }
-//         // //Plugin.Logger.LogInfo($"Patch_CScenarioScriptBase_CallCsvbBlock");
-//         // //Plugin.Logger.LogInfo($"__instance {__instance}");
-//         // //Plugin.Logger.LogInfo($"_csvbId {_csvbId}");
-//         // //Plugin.Logger.LogInfo($"_blockId {_blockId}");
+//         uint itemID = Language.makeHash((string)__args[0]);
+//         Plugin.Logger.LogInfo($"{Language.GetString(itemID)} [{itemID}]");
 //     }
 // }
