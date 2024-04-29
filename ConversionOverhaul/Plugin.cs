@@ -17,9 +17,8 @@ TODO:
     - Get rid of 2nd prompt from Guadromon conversation to remove button presses (make it like Gutsumon/Tyrannomon)
         - Can skip 2nd prompt entirely by running different scriptCommand.
         - Find code responsible for displaying them item acquired. Would be really nice to simply not run any script and display that item acquisition panel (w/item icon and count)
-            - not uResultPanelGet (that is for setting data for item's dropped from enemies after battle)
-            - looks like a uCommonMessageWindow is initialized when the item acquisition window pops up? Not sure though
-            - don't think it has anything to do with CarePanel
+            - looks to be the product of TalkMain.CommonMessageWindow but it looks like it has a specific setup, takes specific arguments, and removes it's own references when finished
+            - Can we implement our own version of TalkMain.CommonMessageWindow that will force a window with custom text/image to open when called
     - Look into generating new panel to the right of screen kind of like a shop
     - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
     - Include keyboard equivalent of gamepad Square for maxing num_exchange
@@ -292,6 +291,16 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
 
     public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
         Plugin.Logger.LogInfo($"_csvbId {_csvbId} _blockId {_blockId}");
+        
+        TalkMain talkMain = MainGameManager.Ref.eventScene;
+        Plugin.Logger.LogInfo($"talkMain {talkMain}");
+        Plugin.Logger.LogInfo($"talkMain window {talkMain.m_common_message_window}");
+
+        string item_name = "Meat";
+        string arg0 = "TOWN_TALK_D034_026";
+        string arg1 = $"ui/itemicons/{Plugin.ITEM_LOOKUP[item_name].m_iconName}";
+        talkMain.CommonMessageWindow(arg0, arg1, "", "", "", "");
+        Plugin.Logger.LogInfo($"talkMain window {talkMain.m_common_message_window}");
     }
 }
 
@@ -378,28 +387,32 @@ public static class Patch_ParameterCommonSelectWindow_IsSelectModeActive
     }
 }
 
-[HarmonyPatch(typeof(TalkMain), "CommonMessageWindow")]
-public static class Test3
-{
-    public static void Postfix(dynamic __instance)
-    {
-        Plugin.Logger.LogInfo($"TalkMain::CommonMessageWindow");
-        Plugin.Logger.LogInfo($"__instance {__instance}");
-        uint itemID = Plugin.ITEM_LOOKUP["Meat"].m_id;
+// [HarmonyPatch(typeof(TalkMain), "CommonMessageWindow")]
+// public static class Test3
+// {
+//     public static void Prefix(string arg0, ref string arg1, dynamic __instance)
+//     {
+//         Plugin.Logger.LogInfo($"TalkMain::CommonMessageWindow:Prefix");
+//         string item_name = "Meat";
+//         arg1 = $"ui/itemicons/{Plugin.ITEM_LOOKUP[item_name].m_iconName}";
         
-        Plugin.Logger.LogInfo($"{itemID}");
+//         // arg0 = "TOWN_TALK_D034_026";
+//         // arg1 = $"ui/itemicons/{Plugin.ITEM_LOOKUP[item_name].m_iconName}";
+//         // Plugin.Logger.LogInfo($"arg0 {arg0}");
+//         // Plugin.Logger.LogInfo($"arg1 {arg1}");
+//     }
 
-        Plugin.Logger.LogInfo($"sprite {__instance.m_iconImage.sprite}");
-        Plugin.Logger.LogInfo($"sprite_replace {uItemBase.GetIconImage(ref itemID)}");
-        
-        __instance.m_iconImage.sprite = uItemBase.GetIconImage(ref itemID);
-        __instance.m_common_message_window.SetLangMessage("The aroma is intoxicating!", uCommonMessageWindow.Pos.Center);
-        // arg0 = "TOWN_TALK_D034_026";
-        // arg1 = $"ui/itemicons/{Plugin.ITEM_LOOKUP[item_name].m_iconName}";
-        // Plugin.Logger.LogInfo($"arg0 {arg0}");
-        // Plugin.Logger.LogInfo($"arg1 {arg1}");
-    }
-}
+//     public static void Postfix(dynamic __instance) {
+//         Plugin.Logger.LogInfo($"TalkMain::CommonMessageWindow:Postfix");
+
+//         __instance.m_common_message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
+//         __instance.m_common_message_window.Initialize(0);
+//         __instance.m_common_message_window.SetLangMessage("The armoa is intoxicating!", uCommonMessageWindow.Pos.Center);
+
+//         __instance.m_iconImage = iconObject.AddComponent<Image>();
+//         __instance.m_iconImage.enabled = false;
+//     }
+// }
 
 // [HarmonyPatch(typeof(TalkMain), "SetItem")]
 // public static class Test4
