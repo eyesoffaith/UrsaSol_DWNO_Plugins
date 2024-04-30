@@ -19,11 +19,11 @@ TODO:
         - Find code responsible for displaying them item acquired. Would be really nice to simply not run any script and display that item acquisition panel (w/item icon and count)
             - looks to be the product of TalkMain.CommonMessageWindow but it looks like it has a specific setup, takes specific arguments, and removes it's own references when finished
             - Can we implement our own version of TalkMain.CommonMessageWindow that will force a window with custom text/image to open when called
+            - Partial success!!! Was able to make my own function that made a uCommonMessageWindow appear with Japanese error text. Got to see what in the setup I'm doing wrong PICK UP HERE
     - Look into generating new panel to the right of screen kind of like a shop
     - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
     - Include keyboard equivalent of gamepad Square for maxing num_exchange
 
-***PICK UP HERE***
 I think all exchanges can be handled via csvbId + blockId format. Mapping them here: [csvbId = Scenario04] for all
     - Gaurdromon    D034_*
         - initial option selection is Scenario04/D034_MENU0X where confirmation is SubScenario/D034_MENUX0
@@ -143,6 +143,125 @@ public class Plugin : BasePlugin
         Plugin.original_CallCmdBlockCommonSelectWindow = harmony.Patch(GetOriginalMethod("CScenarioScript", "CallCmdBlockCommonSelectWindow"));
         harmony.PatchAll();
     }
+
+    public static uCommonMessageWindow MessageWindowWithImage(string message, uint itemID = 0)
+	{
+        uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
+        message_window.Initialize(0);
+        
+        GameObject iconObject = new GameObject("Image");
+        iconObject.hideFlags = HideFlags.DontSave;
+        iconObject.transform.SetParent(message_window.transform.Find("Root").Find("Anim"), false);
+        Image image = iconObject.AddComponent<Image>();
+        image.enabled = false;
+        iconObject.SetActive(false);
+
+        ScreenEffectScript.Ref.ToColorBegin(new Color32(0, 0, 0, 180), 0.5f, null, null);
+        message_window.SetLangMessage(message, uCommonMessageWindow.Pos.Center);
+        message_window.enablePanel(true, false);
+        RectTransform baseRect = image.transform.parent.Find("Base").GetComponent<RectTransform>();
+        Text text = image.transform.parent.Find("Text").GetComponent<Text>();
+
+        Sprite sprite = null;
+        if (itemID > 0) {
+            ParameterItemData item = Plugin.ITEM_LOOKUP[Language.GetString(itemID)];
+            sprite = uItemBase.LoadIconImage(ref item);
+
+            image.sprite = sprite;
+            image.gameObject.SetActive(true);
+            image.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2((float)sprite.texture.width, (float)sprite.texture.height);
+            image.gameObject.transform.localScale = Vector3.zero;
+            TweenScale.Begin(image.gameObject, 0.1f, Vector3.one);
+            image.transform.localPosition = new Vector3(0f, baseRect.sizeDelta.y / 2f + (float)sprite.texture.height / 2f, 0f);
+            image.enabled = true;
+        }
+        else {
+            image.gameObject.SetActive(false);
+        }
+        message_window.UpdateMain();
+        
+        return message_window;
+
+		// if (this.m_common_message_window == null)
+		// {
+		// 	this.m_common_message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
+		// 	yield return null;
+		// 	this.m_common_message_window.Initialize(0);
+		// 	yield return null;
+		// 	GameObject iconObject = new GameObject("Image");
+		// 	iconObject.hideFlags = HideFlags.DontSave;
+		// 	iconObject.transform.SetParent(this.m_common_message_window.transform.FindChild("Root").FindChild("Anim"), false);
+		// 	if (this.m_iconImage == null)
+		// 	{
+		// 		this.m_iconImage = iconObject.AddComponent<Image>();
+		// 		this.m_iconImage.enabled = false;
+		// 	}
+		// 	iconObject.SetActive(false);
+		// 	yield return null;
+		// }
+		// if (this.m_common_message_window != null)
+		// {
+		// 	ScreenEffectScript.Ref.ToColorBegin(new Color32(0, 0, 0, 180), 0.5f, null, null);
+		// 	string message = Language.GetStringWithButtonIcon(arg0);
+		// 	this.m_common_message_window.SetLangMessage(message, uCommonMessageWindow.Pos.Center);
+		// 	this.m_common_message_window.enablePanel(true, false);
+		// 	RectTransform baseRect = this.m_iconImage.transform.parent.FindChild("Base").GetComponent<RectTransform>();
+		// 	Text text = this.m_iconImage.transform.parent.FindChild("Text").GetComponent<Text>();
+		// 	base.SetText(text, message);
+		// 	baseRect.sizeDelta = new Vector2(text.rectTransform.sizeDelta.x * 0.5f + 112f, text.rectTransform.sizeDelta.y + 20f);
+		// 	text.text = message;
+		// 	Sprite sprite = null;
+		// 	if (arg1 != null && arg1.Length > 0)
+		// 	{
+		// 		string resouce_name = "UI/item_icon" + arg1.Replace("ui/itemicons", string.Empty);
+		// 		ResourceRequest request = Resources.LoadAsync<Sprite>(resouce_name);
+		// 		while (!request.isDone)
+		// 		{
+		// 			yield return null;
+		// 		}
+		// 		if (request.asset != null)
+		// 		{
+		// 			sprite = (request.asset as Sprite);
+		// 		}
+		// 	}
+		// 	if (sprite != null)
+		// 	{
+		// 		if (this.m_iconImage.sprite)
+		// 		{
+		// 			this.m_iconImage.sprite = null;
+		// 		}
+		// 		this.m_iconImage.sprite = sprite;
+		// 		this.m_iconImage.gameObject.SetActive(true);
+		// 		this.m_iconImage.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2((float)sprite.texture.width, (float)sprite.texture.height);
+		// 		this.m_iconImage.gameObject.transform.localScale = Vector3.zero;
+		// 		TweenScale.Begin(this.m_iconImage.gameObject, 0.1f, Vector3.one);
+		// 		this.m_iconImage.transform.localPosition = new Vector3(0f, baseRect.sizeDelta.y / 2f + (float)sprite.texture.height / 2f, 0f);
+		// 		this.m_iconImage.enabled = true;
+		// 	}
+		// 	else
+		// 	{
+		// 		this.m_iconImage.gameObject.SetActive(false);
+		// 	}
+		// 	do
+		// 	{
+		// 		yield return null;
+		// 		this.m_common_message_window.UpdateMain();
+		// 	}
+		// 	while (this.m_common_message_window.IsOpened());
+		// 	if (this.m_iconImage.gameObject.activeInHierarchy)
+		// 	{
+		// 		TweenScale.Begin(this.m_iconImage.gameObject, 0.1f, Vector3.zero);
+		// 	}
+		// 	if (this.m_iconImage.sprite != null)
+		// 	{
+		// 		this.m_iconImage.sprite = null;
+		// 		this.m_iconImage.enabled = false;
+		// 	}
+		// 	ScreenEffectScript.Ref.FadeInBegin(0.5f, null, null);
+		// }
+		// yield break;
+	}
+
 }
 
 [HarmonyPatch(typeof(AppMainScript), "_FinishedParameterLoad")]
@@ -203,6 +322,9 @@ public static class Patch_uCommonSelectWindowPanel_Setup
                 }
             }
         }
+
+        uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("This is a Meat!", Plugin.ITEM_LOOKUP["Meat"].m_id);
+        Plugin.Logger.LogInfo($"message_window {message_window}");
     }
 }
 
