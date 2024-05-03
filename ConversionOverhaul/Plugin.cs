@@ -144,48 +144,46 @@ public class Plugin : BasePlugin
         harmony.PatchAll();
     }
 
-    public static uCommonMessageWindow MessageWindowWithImage(string message, string item_name = "")
-	{
+    public static uCommonMessageWindow MessageWindow(string message)
+    {
         uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
         message_window.Initialize(0);
+        message_window.SetMessage(message);
+        
+        string[] parts = message.Split("\n");
+        int max_width = parts.MaxBy(x => x.Count()).Count();
+        int max_height = parts.Count();
+        message_window.m_window.sizeDelta = new Vector2(max_width * 8 + 120f, max_height * 30 + 60f);
+
+        TalkMain talk_main = MainGameManager.Ref.eventScene;
+        talk_main.m_common_message_window = message_window;
+
+        return message_window;
+    }
+
+    public static uCommonMessageWindow MessageWindowWithImage(string message, string item_name)
+	{
+        uCommonMessageWindow message_window = MessageWindow(message);
+
+        ParameterItemData item_data = Plugin.ITEM_LOOKUP[item_name];
+        Sprite sprite = Resources.Load<Sprite>("UI/item_icon/" + item_data.m_iconName);
 
         GameObject iconObject = new GameObject("Image");
         iconObject.hideFlags = HideFlags.DontSave;
         iconObject.transform.SetParent(message_window.transform.Find("Root").Find("Anim"), false);
 
         Image image = iconObject.AddComponent<Image>();
-        image.enabled = false;
-        iconObject.SetActive(false);
         ScreenEffectScript.Ref.ToColorBegin(new Color32(0, 0, 0, 180), 0.5f, null, null);
-        message_window.SetMessage(message);
-        
-        RectTransform baseRect = image.transform.parent.Find("Base").GetComponent<RectTransform>();
-        string[] parts = message_window.m_label.text.Split("\n");
-        int max_width = parts.MaxBy(x => x.Count()).Count();
-        int max_height = parts.Count();
-        baseRect.sizeDelta = new Vector2(max_width * 8 + 120f, max_height * 30 + 60f);
-
-        Sprite sprite = null;
-        if (!String.IsNullOrEmpty(item_name)) {
-            ParameterItemData item = Plugin.ITEM_LOOKUP[item_name];
-            sprite = Resources.Load<Sprite>("UI/item_icon/" + item.m_iconName);
-
-            image.sprite = sprite;
-            image.gameObject.SetActive(true);
-            image.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2((float)sprite.texture.width, (float)sprite.texture.height);
-            image.gameObject.transform.localScale = Vector3.zero;
-            TweenScale.Begin(image.gameObject, 0.1f, Vector3.one);
-            image.transform.localPosition = new Vector3(0f, baseRect.sizeDelta.y / 2f + (float)sprite.texture.height / 2f, 0f);
-            image.enabled = true;
-        }
-        else {
-            image.gameObject.SetActive(false);
-        }
-        message_window.UpdateMain();
+        image.sprite = sprite;
+        image.gameObject.SetActive(true);
+        image.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2((float)sprite.texture.width, (float)sprite.texture.height);
+        image.gameObject.transform.localScale = Vector3.zero;
+        TweenScale.Begin(image.gameObject, 0.1f, Vector3.one);
+        image.transform.localPosition = new Vector3(0f, message_window.m_window.sizeDelta.y / 2f + (float)sprite.texture.height / 2f, 0f);
+        image.enabled = true;
 
         return message_window;
 	}
-
 }
 
 [HarmonyPatch(typeof(AppMainScript), "_FinishedParameterLoad")]
@@ -249,7 +247,6 @@ public static class Patch_uCommonSelectWindowPanel_Setup
 
         string test = Language.GetStringWithButtonIcon("TOWN_TALK_D034_026");
         // uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("This is a really really really really really really long message!", "Medicine");
-        uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.", "Medicine");
     }
 }
 
@@ -326,12 +323,12 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
     }
 
     public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
-        TalkMain talkMain = MainGameManager.Ref.eventScene;
-
-        string item_name = "Meat";
-        string arg0 = "TOWN_TALK_D034_026";
-        string arg1 = $"ui/itemicons/{Plugin.ITEM_LOOKUP[item_name].m_iconName}";
-        talkMain.CommonMessageWindow(arg0, arg1, "", "", "", "");
+        Plugin.Logger.LogInfo("Patch_CScenarioScriptBase_CallCsvbBlock::PostFix");
+        Plugin.Logger.LogInfo($"_csvbId {_csvbId} _blockId {_blockId}");
+        if (_blockId == "D034_TALK01" && _csvbId == "SubScenario") {
+            uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.", "Medicine");
+            // __instance._DispCommonMessageWindow;
+        }
     }
 }
 
@@ -344,7 +341,8 @@ public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
     }
 
     public static void Postfix(string _blockId, dynamic __instance) {
-        // Plugin.Logger.LogInfo($"_blockId {_blockId}");
+        Plugin.Logger.LogInfo("Patch_CScenarioScriptBase_CallAllCsvbBlock::PostFix");
+        Plugin.Logger.LogInfo($"_blockId {_blockId}");
     }
 }
 
