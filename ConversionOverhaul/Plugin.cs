@@ -156,20 +156,14 @@ public class Plugin : BasePlugin
         Image image = iconObject.AddComponent<Image>();
         image.enabled = false;
         iconObject.SetActive(false);
-
         ScreenEffectScript.Ref.ToColorBegin(new Color32(0, 0, 0, 180), 0.5f, null, null);
-
         message_window.SetMessage(message);
-        Plugin.Logger.LogInfo($"sizeDelta {message_window.GetWindowSize(message_window.m_label.text, false)}");
-        Vector2 window_size = new Vector2(message_window.m_label.preferredWidth, message_window.m_label.preferredWidth);
-        window_size.x = window_size.x * message_window.m_label.transform.localScale.x;
-        message_window.m_window.sizeDelta = window_size;
-        Plugin.Logger.LogInfo($"sizeDelta2 {message_window.m_window.sizeDelta}");
+        
         RectTransform baseRect = image.transform.parent.Find("Base").GetComponent<RectTransform>();
-        baseRect.sizeDelta = new Vector2(message_window.m_label.rectTransform.sizeDelta.x * 0.5f + 112f, message_window.m_label.rectTransform.sizeDelta.y + 20f);
-        Plugin.Logger.LogInfo($"m_label.x {message_window.m_label.rectTransform.sizeDelta.x}");
-        Plugin.Logger.LogInfo($"m_label.length {message_window.m_label.text.Count()}");
-        Plugin.Logger.LogInfo($"sizeDelta3 {message_window.m_window.sizeDelta}");
+        string[] parts = message_window.m_label.text.Split("\n");
+        int max_width = parts.MaxBy(x => x.Count()).Count();
+        int max_height = parts.Count();
+        baseRect.sizeDelta = new Vector2(max_width * 8 + 120f, max_height * 30 + 60f);
 
         Sprite sprite = null;
         if (!String.IsNullOrEmpty(item_name)) {
@@ -188,87 +182,8 @@ public class Plugin : BasePlugin
             image.gameObject.SetActive(false);
         }
         message_window.UpdateMain();
-        
-        return message_window;
 
-		// if (this.m_common_message_window == null)
-		// {
-		// 	this.m_common_message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
-		// 	yield return null;
-		// 	this.m_common_message_window.Initialize(0);
-		// 	yield return null;
-		// 	GameObject iconObject = new GameObject("Image");
-		// 	iconObject.hideFlags = HideFlags.DontSave;
-		// 	iconObject.transform.SetParent(this.m_common_message_window.transform.FindChild("Root").FindChild("Anim"), false);
-		// 	if (this.m_iconImage == null)
-		// 	{
-		// 		this.m_iconImage = iconObject.AddComponent<Image>();
-		// 		this.m_iconImage.enabled = false;
-		// 	}
-		// 	iconObject.SetActive(false);
-		// 	yield return null;
-		// }
-		// if (this.m_common_message_window != null)
-		// {
-		// 	ScreenEffectScript.Ref.ToColorBegin(new Color32(0, 0, 0, 180), 0.5f, null, null);
-		// 	string message = Language.GetStringWithButtonIcon(arg0);
-		// 	this.m_common_message_window.SetLangMessage(message, uCommonMessageWindow.Pos.Center);
-		// 	this.m_common_message_window.enablePanel(true, false);
-		// 	RectTransform baseRect = this.m_iconImage.transform.parent.FindChild("Base").GetComponent<RectTransform>();
-		// 	Text text = this.m_iconImage.transform.parent.FindChild("Text").GetComponent<Text>();
-		// 	base.SetText(text, message);
-		// 	baseRect.sizeDelta = new Vector2(text.rectTransform.sizeDelta.x * 0.5f + 112f, text.rectTransform.sizeDelta.y + 20f);
-		// 	text.text = message;
-		// 	Sprite sprite = null;
-		// 	if (arg1 != null && arg1.Length > 0)
-		// 	{
-		// 		string resouce_name = "UI/item_icon" + arg1.Replace("ui/itemicons", string.Empty);
-		// 		ResourceRequest request = Resources.LoadAsync<Sprite>(resouce_name);
-		// 		while (!request.isDone)
-		// 		{
-		// 			yield return null;
-		// 		}
-		// 		if (request.asset != null)
-		// 		{
-		// 			sprite = (request.asset as Sprite);
-		// 		}
-		// 	}
-		// 	if (sprite != null)
-		// 	{
-		// 		if (this.m_iconImage.sprite)
-		// 		{
-		// 			this.m_iconImage.sprite = null;
-		// 		}
-		// 		this.m_iconImage.sprite = sprite;
-		// 		this.m_iconImage.gameObject.SetActive(true);
-		// 		this.m_iconImage.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2((float)sprite.texture.width, (float)sprite.texture.height);
-		// 		this.m_iconImage.gameObject.transform.localScale = Vector3.zero;
-		// 		TweenScale.Begin(this.m_iconImage.gameObject, 0.1f, Vector3.one);
-		// 		this.m_iconImage.transform.localPosition = new Vector3(0f, baseRect.sizeDelta.y / 2f + (float)sprite.texture.height / 2f, 0f);
-		// 		this.m_iconImage.enabled = true;
-		// 	}
-		// 	else
-		// 	{
-		// 		this.m_iconImage.gameObject.SetActive(false);
-		// 	}
-		// 	do
-		// 	{
-		// 		yield return null;
-		// 		this.m_common_message_window.UpdateMain();
-		// 	}
-		// 	while (this.m_common_message_window.IsOpened());
-		// 	if (this.m_iconImage.gameObject.activeInHierarchy)
-		// 	{
-		// 		TweenScale.Begin(this.m_iconImage.gameObject, 0.1f, Vector3.zero);
-		// 	}
-		// 	if (this.m_iconImage.sprite != null)
-		// 	{
-		// 		this.m_iconImage.sprite = null;
-		// 		this.m_iconImage.enabled = false;
-		// 	}
-		// 	ScreenEffectScript.Ref.FadeInBegin(0.5f, null, null);
-		// }
-		// yield break;
+        return message_window;
 	}
 
 }
@@ -333,10 +248,8 @@ public static class Patch_uCommonSelectWindowPanel_Setup
         }
 
         string test = Language.GetStringWithButtonIcon("TOWN_TALK_D034_026");
-        Plugin.Logger.LogInfo($"test {test}");
-
-        uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("This is a really really really really really really long message!", "Medicine");
-        Plugin.Logger.LogInfo($"message_window {message_window}");
+        // uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("This is a really really really really really really long message!", "Medicine");
+        uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.", "Medicine");
     }
 }
 
@@ -385,32 +298,21 @@ public static class Patch_uCommonSelectWindowPanel_Update
 
         Plugin.selected_option = selected_option;
         Plugin.num_exchanges = 1;
-        //Plugin.Logger.LogInfo($"selected_option {Plugin.selected_option}");
 
         dynamic windowOptionParams = __instance.m_paramCommonSelectWindowList[selected_option];
-        //Plugin.Logger.LogInfo($"window {window}");
         string scriptCommand = windowOptionParams.m_scriptCommand;
-        //Plugin.Logger.LogInfo($"scriptCommand {scriptCommand}");
         string scriptType = scriptCommand.Split("_")[0];
-        //Plugin.Logger.LogInfo($"scriptType {scriptType}");
         
         Plugin.selected_recipe.Clear();
-        //Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
-        //Plugin.Logger.LogInfo($"window_type {window_type}");
         if (Plugin.town_material_window_types.Contains(window_type)) {
             uint item_id = windowOptionParams.m_select_item1;
-            //Plugin.Logger.LogInfo($"item_id {item_id}");
             Plugin.selected_recipe.Add((Language.GetString(item_id), windowOptionParams.m_select_value1));
-            //Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
         }
         if (Plugin.player_inventory_window_types.Contains(window_type)) {
-            //Plugin.Logger.LogInfo($"TEST {window.m_select_item1}");
             (string, (string, int)[] Input) recipe = Plugin.lab_recipes[selected_option];
-            //Plugin.Logger.LogInfo($"recipe {recipe}");
             foreach ((string name, int count) item in recipe.Input) {
                 Plugin.selected_recipe.Add((item.name, item.count));
             }
-            //Plugin.Logger.LogInfo($"selected_recipe {Plugin.selected_recipe}");
         }
     }
 }
@@ -424,17 +326,12 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
     }
 
     public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
-        Plugin.Logger.LogInfo($"_csvbId {_csvbId} _blockId {_blockId}");
-        
         TalkMain talkMain = MainGameManager.Ref.eventScene;
-        Plugin.Logger.LogInfo($"talkMain {talkMain}");
-        Plugin.Logger.LogInfo($"talkMain window {talkMain.m_common_message_window}");
 
         string item_name = "Meat";
         string arg0 = "TOWN_TALK_D034_026";
         string arg1 = $"ui/itemicons/{Plugin.ITEM_LOOKUP[item_name].m_iconName}";
         talkMain.CommonMessageWindow(arg0, arg1, "", "", "", "");
-        Plugin.Logger.LogInfo($"talkMain window {talkMain.m_common_message_window}");
     }
 }
 
@@ -447,7 +344,7 @@ public static class Patch_CScenarioScriptBase_CallAllCsvbBlock
     }
 
     public static void Postfix(string _blockId, dynamic __instance) {
-        Plugin.Logger.LogInfo($"_blockId {_blockId}");
+        // Plugin.Logger.LogInfo($"_blockId {_blockId}");
     }
 }
 
