@@ -146,64 +146,35 @@ public class Plugin : BasePlugin
 
     public static uCommonMessageWindow MessageWindowWithImage(string message, string item_name = "")
 	{
-        Plugin.Logger.LogInfo($"MessageWindowWithImage");
-        Plugin.Logger.LogInfo($"message {message}");
-        Plugin.Logger.LogInfo($"item_name {item_name}");
-
         uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
         message_window.Initialize(0);
-        Plugin.Logger.LogInfo($"window made");
 
         GameObject iconObject = new GameObject("Image");
         iconObject.hideFlags = HideFlags.DontSave;
         iconObject.transform.SetParent(message_window.transform.Find("Root").Find("Anim"), false);
-        Plugin.Logger.LogInfo($"icon object made");
 
         Image image = iconObject.AddComponent<Image>();
         image.enabled = false;
         iconObject.SetActive(false);
-        Plugin.Logger.LogInfo($"image bound to icon");
 
         ScreenEffectScript.Ref.ToColorBegin(new Color32(0, 0, 0, 180), 0.5f, null, null);
-        Plugin.Logger.LogInfo($"window transition kicked off");
 
-        message_window.SetLangMessage(message, uCommonMessageWindow.Pos.Center);
-        Plugin.Logger.LogInfo($"window message set");
-
-        message_window.enablePanel(true, false);
-        Plugin.Logger.LogInfo($"window visible");
-
+        message_window.SetMessage(message);
+        Plugin.Logger.LogInfo($"sizeDelta {message_window.GetWindowSize(message_window.m_label.text, false)}");
+        Vector2 window_size = new Vector2(message_window.m_label.preferredWidth, message_window.m_label.preferredWidth);
+        window_size.x = window_size.x * message_window.m_label.transform.localScale.x;
+        message_window.m_window.sizeDelta = window_size;
+        Plugin.Logger.LogInfo($"sizeDelta2 {message_window.m_window.sizeDelta}");
         RectTransform baseRect = image.transform.parent.Find("Base").GetComponent<RectTransform>();
-        Text text = image.transform.parent.Find("Text").GetComponent<Text>();
-        Plugin.Logger.LogInfo($"set text for image??");
+        baseRect.sizeDelta = new Vector2(message_window.m_label.rectTransform.sizeDelta.x * 0.5f + 112f, message_window.m_label.rectTransform.sizeDelta.y + 20f);
+        Plugin.Logger.LogInfo($"m_label.x {message_window.m_label.rectTransform.sizeDelta.x}");
+        Plugin.Logger.LogInfo($"m_label.length {message_window.m_label.text.Count()}");
+        Plugin.Logger.LogInfo($"sizeDelta3 {message_window.m_window.sizeDelta}");
 
         Sprite sprite = null;
         if (!String.IsNullOrEmpty(item_name)) {
             ParameterItemData item = Plugin.ITEM_LOOKUP[item_name];
-            Plugin.Logger.LogInfo($"item {item}");
-
             sprite = Resources.Load<Sprite>("UI/item_icon/" + item.m_iconName);
-            // while (!request.isDone)
-            // {
-            //     continue;
-            // }
-            // if (request.asset != null)
-            // {
-            //     sprite = (request.asset as Sprite);
-            // }
-
-            Plugin.Logger.LogInfo($"sprite {sprite}");
-            Plugin.Logger.LogInfo($"image {image}");
-            Plugin.Logger.LogInfo($"image.gameObject {image.gameObject}");
-            Plugin.Logger.LogInfo($"image.gameObject.transform.localScale {image.gameObject.transform.localScale}");
-            Plugin.Logger.LogInfo($"Vector3.zero {Vector3.zero}");
-            Plugin.Logger.LogInfo($"Vector3.one {Vector3.one}");
-            Plugin.Logger.LogInfo($"baseRect {baseRect}");
-            Plugin.Logger.LogInfo($"baseRect.sizeDetla {baseRect.sizeDelta}");
-            Plugin.Logger.LogInfo($"baseRect.sizeDetla.y {baseRect.sizeDelta.y}");
-            Plugin.Logger.LogInfo($"sprite {sprite}");
-            Plugin.Logger.LogInfo($"sprite.texture {sprite.texture}");
-            Plugin.Logger.LogInfo($"sprite.texture.height {sprite.texture.height}");
 
             image.sprite = sprite;
             image.gameObject.SetActive(true);
@@ -212,13 +183,11 @@ public class Plugin : BasePlugin
             TweenScale.Begin(image.gameObject, 0.1f, Vector3.one);
             image.transform.localPosition = new Vector3(0f, baseRect.sizeDelta.y / 2f + (float)sprite.texture.height / 2f, 0f);
             image.enabled = true;
-            Plugin.Logger.LogInfo($"image setup and sprite created");
         }
         else {
             image.gameObject.SetActive(false);
         }
-        Plugin.Logger.LogInfo($"trigger main update for message_window");
-        // message_window.UpdateMain();
+        message_window.UpdateMain();
         
         return message_window;
 
@@ -366,7 +335,7 @@ public static class Patch_uCommonSelectWindowPanel_Setup
         string test = Language.GetStringWithButtonIcon("TOWN_TALK_D034_026");
         Plugin.Logger.LogInfo($"test {test}");
 
-        uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("This is a Meat!", "Medicine");
+        uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("This is a really really really really really really long message!", "Medicine");
         Plugin.Logger.LogInfo($"message_window {message_window}");
     }
 }
