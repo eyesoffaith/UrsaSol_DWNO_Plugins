@@ -108,7 +108,8 @@ public class Plugin : BasePlugin
     public static int selected_option;
     public static int num_exchanges;
     public static MethodInfo original_CallCmdBlockCommonSelectWindow;
-
+    public static uCommonMessageWindow message_window = null;
+    
     public static (string, (string, int)[])[] lab_recipes = new [] {
         ( "Double Disk", new [] { ("MP Disk", 2), ("Recovery Disk", 2) } ),
         ( "Large Double Disk", new [] { ("Medium MP Disk", 3), ("Medium Recovery Disk", 3) } ),
@@ -148,8 +149,10 @@ public class Plugin : BasePlugin
     {
         uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
         message_window.Initialize(0);
-        message_window.SetMessage(message);
-        
+        Plugin.Logger.LogInfo($"message_window pos {message_window.m_rootTransform.localPosition}");
+        message_window.SetMessage(message, uCommonMessageWindow.Pos.Partner00);
+        Plugin.Logger.LogInfo($"message_window pos {message_window.m_rootTransform.localPosition}");
+                
         string[] parts = message.Split("\n");
         int max_width = parts.MaxBy(x => x.Count()).Count();
         int max_height = parts.Count();
@@ -157,6 +160,50 @@ public class Plugin : BasePlugin
 
         TalkMain talk_main = MainGameManager.Ref.eventScene;
         talk_main.m_common_message_window = message_window;
+
+        uShopPanelItemCaption item_caption = new uShopPanelItemCaption();
+        Plugin.Logger.LogInfo($"item_caption {item_caption}");
+        uShopPanelNumChange num_change = new uShopPanelNumChange();
+        Plugin.Logger.LogInfo($"num_change {num_change}");
+        Plugin.Logger.LogInfo($"test {uShopPanel.ShopType.BUY}");
+
+        num_change.m_shopType = uShopPanel.ShopType.BUY;
+        Plugin.Logger.LogInfo($"1");
+        num_change.m_myMoney = 1;
+        Plugin.Logger.LogInfo($"2");
+        num_change.m_numMax = 99;
+        Plugin.Logger.LogInfo($"3");
+        num_change.m_onePrice = 0;
+        Plugin.Logger.LogInfo($"4");
+        num_change.m_totalMoney = 1;
+        Plugin.Logger.LogInfo($"5");
+        GameObject gameObject = new GameObject("Text");
+        Text text = gameObject.AddComponent<Text>();
+        num_change.m_itemNumTextName = text;
+        num_change.m_itemNumTextName.text = "m_itemNumTextName";
+        Plugin.Logger.LogInfo($"6");
+        num_change.m_priceTotalText = text;
+        num_change.m_priceTotalText.text = "m_priceTotalText";
+        Plugin.Logger.LogInfo($"7");
+        num_change.m_numText = text;
+        num_change.m_numText.text = "m_numText";
+        Plugin.Logger.LogInfo($"8");
+        num_change.m_totalText = text;
+        num_change.m_totalText.text = "m_totalText";
+        Plugin.Logger.LogInfo($"9");
+        num_change.m_totalTextNormalColor = Color.white;
+
+        Plugin.Logger.LogInfo($"num_change.m_shopType {num_change.m_shopType}");
+        Plugin.Logger.LogInfo($"num_change.m_myMoney {num_change.m_myMoney}");
+        Plugin.Logger.LogInfo($"num_change.m_numMax {num_change.m_numMax}");
+        Plugin.Logger.LogInfo($"num_change.m_onePrice {num_change.m_onePrice}");
+        Plugin.Logger.LogInfo($"num_change.m_totalMoney {num_change.m_totalMoney}");
+        Plugin.Logger.LogInfo($"num_change.m_itemNumTextName {num_change.m_itemNumTextName}");
+        Plugin.Logger.LogInfo($"num_change.m_priceTotalText {num_change.m_priceTotalText}");
+        Plugin.Logger.LogInfo($"num_change.m_numText {num_change.m_numText}");
+        Plugin.Logger.LogInfo($"num_change.m_totalText {num_change.m_totalText}");
+        Plugin.Logger.LogInfo($"num_change.m_totalTextNormalColor {num_change.m_totalTextNormalColor}");
+        num_change.enablePanel(true);
 
         return message_window;
     }
@@ -244,9 +291,6 @@ public static class Patch_uCommonSelectWindowPanel_Setup
                 }
             }
         }
-
-        string test = Language.GetStringWithButtonIcon("TOWN_TALK_D034_026");
-        // uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("This is a really really really really really really long message!", "Medicine");
     }
 }
 
@@ -313,6 +357,20 @@ public static class Patch_uCommonSelectWindowPanel_Update
         }
     }
 }
+[HarmonyPatch(typeof(uCommonSelectWindowPanel), "enablePanel")]
+public static class Patch_uCommonSelectWindowPanel_enablePanel
+{
+    public static void Postfix(bool set_enable, dynamic __instance) {
+        Plugin.Logger.LogInfo($"Patch_uCommonSelectWindowPanel_enablePanel::Postfix");
+        dynamic window_type = __instance.m_windowType;
+
+        if (!set_enable && Plugin.windows_we_care_about.Contains(window_type)){
+            Plugin.message_window.SetButtonAction();
+            UnityEngine.Object.Destroy(Plugin.message_window);
+            Plugin.message_window = null;
+        }
+    }
+}
 
 [HarmonyPatch]
 public static class Patch_CScenarioScriptBase_CallCsvbBlock
@@ -326,7 +384,7 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
         Plugin.Logger.LogInfo("Patch_CScenarioScriptBase_CallCsvbBlock::PostFix");
         Plugin.Logger.LogInfo($"_csvbId {_csvbId} _blockId {_blockId}");
         if (_blockId == "D034_TALK01" && _csvbId == "SubScenario") {
-            uCommonMessageWindow message_window = Plugin.MessageWindowWithImage("For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.", "Medicine");
+            Plugin.message_window = Plugin.MessageWindow("For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.");
             // __instance._DispCommonMessageWindow;
         }
     }
