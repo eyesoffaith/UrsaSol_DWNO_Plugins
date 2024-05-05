@@ -147,50 +147,42 @@ public class Plugin : BasePlugin
 
     public static uCommonMessageWindow MessageWindow(string message)
     {
-        uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
-        message_window.Initialize(0);
-        Plugin.Logger.LogInfo($"message_window pos {message_window.m_rootTransform.localPosition}");
-        message_window.SetMessage(message, uCommonMessageWindow.Pos.Partner00);
-        Plugin.Logger.LogInfo($"message_window pos {message_window.m_rootTransform.localPosition}");
+        // uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
+        // message_window.Initialize(0);
+        // Plugin.Logger.LogInfo($"message_window pos {message_window.m_rootTransform.localPosition}");
+        // message_window.SetMessage(message, uCommonMessageWindow.Pos.Partner00);
+        // Plugin.Logger.LogInfo($"message_window pos {message_window.m_rootTransform.localPosition}");
                 
-        string[] parts = message.Split("\n");
-        int max_width = parts.MaxBy(x => x.Count()).Count();
-        int max_height = parts.Count();
-        message_window.m_window.sizeDelta = new Vector2(max_width * 8 + 120f, max_height * 30 + 60f);
+        // string[] parts = message.Split("\n");
+        // int max_width = parts.MaxBy(x => x.Count()).Count();
+        // int max_height = parts.Count();
+        // message_window.m_window.sizeDelta = new Vector2(max_width * 8 + 120f, max_height * 30 + 60f);
 
-        TalkMain talk_main = MainGameManager.Ref.eventScene;
-        talk_main.m_common_message_window = message_window;
+        // TalkMain talk_main = MainGameManager.Ref.eventScene;
+        // talk_main.m_common_message_window = message_window;
 
         uShopPanelItemCaption item_caption = new uShopPanelItemCaption();
         Plugin.Logger.LogInfo($"item_caption {item_caption}");
-        uShopPanelNumChange num_change = new uShopPanelNumChange();
-        Plugin.Logger.LogInfo($"num_change {num_change}");
         Plugin.Logger.LogInfo($"test {uShopPanel.ShopType.BUY}");
 
+        uShopPanelNumChange num_change = new GameObject("num_change").AddComponent<uShopPanelNumChange>();
+        Plugin.Logger.LogInfo($"num_change {num_change}");
+
         num_change.m_shopType = uShopPanel.ShopType.BUY;
-        Plugin.Logger.LogInfo($"1");
         num_change.m_myMoney = 1;
-        Plugin.Logger.LogInfo($"2");
         num_change.m_numMax = 99;
-        Plugin.Logger.LogInfo($"3");
         num_change.m_onePrice = 0;
-        Plugin.Logger.LogInfo($"4");
         num_change.m_totalMoney = 1;
-        Plugin.Logger.LogInfo($"5");
         GameObject gameObject = new GameObject("Text");
         Text text = gameObject.AddComponent<Text>();
         num_change.m_itemNumTextName = text;
         num_change.m_itemNumTextName.text = "m_itemNumTextName";
-        Plugin.Logger.LogInfo($"6");
         num_change.m_priceTotalText = text;
         num_change.m_priceTotalText.text = "m_priceTotalText";
-        Plugin.Logger.LogInfo($"7");
         num_change.m_numText = text;
         num_change.m_numText.text = "m_numText";
-        Plugin.Logger.LogInfo($"8");
         num_change.m_totalText = text;
         num_change.m_totalText.text = "m_totalText";
-        Plugin.Logger.LogInfo($"9");
         num_change.m_totalTextNormalColor = Color.white;
 
         Plugin.Logger.LogInfo($"num_change.m_shopType {num_change.m_shopType}");
@@ -203,7 +195,17 @@ public class Plugin : BasePlugin
         Plugin.Logger.LogInfo($"num_change.m_numText {num_change.m_numText}");
         Plugin.Logger.LogInfo($"num_change.m_totalText {num_change.m_totalText}");
         Plugin.Logger.LogInfo($"num_change.m_totalTextNormalColor {num_change.m_totalTextNormalColor}");
+        
+        Plugin.Logger.LogInfo($"setup complete");
+        num_change.SetItemNumText(1, true);
+        Plugin.Logger.LogInfo($"SetItemNumText complete");
+        num_change.SetTotalMoneyText(num_change.m_onePrice);
+        Plugin.Logger.LogInfo($"SetTotalMoneyText complete");
+        num_change.GetNumPrice(99 - num_change.m_numMax);
+        Plugin.Logger.LogInfo($"GetNumPrice complete");
+
         num_change.enablePanel(true);
+        num_change
 
         return message_window;
     }
