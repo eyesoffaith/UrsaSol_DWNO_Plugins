@@ -52,3 +52,39 @@ public static class Patch_PadManager_IsTrigger
         return Plugin.TrashInput();
     }
 }
+
+[HarmonyPatch(typeof(PadManager), "IsInput")]
+public static class Patch_PadManager_IsInput
+{
+    public static bool Prefix()
+    {
+        return Plugin.TrashInput();
+    }
+}
+
+[HarmonyPatch(typeof(PadManager), "IsRelease")]
+public static class Patch_PadManager_IsRelease
+{
+    public static bool Prefix()
+    {
+        return Plugin.TrashInput();
+    }
+}
+
+[HarmonyPatch(typeof(PadManager), "GetLeftStick")]
+public static class Patch_PadManager_GetLeftStick
+{
+    public static bool Prefix()
+    {
+        return Plugin.TrashInput();
+    }
+}
+
+[HarmonyPatch(typeof(PadManager), "GetRightStick")]
+public static class Patch_PadManager_GetRightStick
+{
+    public static bool Prefix()
+    {
+        return Plugin.TrashInput();
+    }
+}
