@@ -16,10 +16,7 @@ using UnityEngine.UI;
 TODO:
     - Get rid of 2nd prompt from Guadromon conversation to remove button presses (make it like Gutsumon/Tyrannomon)
         - Can skip 2nd prompt entirely by running different scriptCommand.
-        - Find code responsible for displaying them item acquired. Would be really nice to simply not run any script and display that item acquisition panel (w/item icon and count)
-            - looks to be the product of TalkMain.CommonMessageWindow but it looks like it has a specific setup, takes specific arguments, and removes it's own references when finished
-            - Can we implement our own version of TalkMain.CommonMessageWindow that will force a window with custom text/image to open when called
-            - Partial success!!! Was able to make my own function that made a uCommonMessageWindow appear with Japanese error text. Got to see what in the setup I'm doing wrong PICK UP HERE
+        - Changing UI for Gostumon/Tyrannomon/Guadromon to have a item shop amount selector (uShopPanelNumChange) and item description (uShopPanelItemCaption)
     - Look into generating new panel to the right of screen kind of like a shop
     - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
     - Include keyboard equivalent of gamepad Square for maxing num_exchange
@@ -145,28 +142,23 @@ public class Plugin : BasePlugin
         harmony.PatchAll();
     }
 
-    public static uCommonMessageWindow MessageWindow(string message)
+    public static uCommonMessageWindow MessageWindow(string message, Transform anchor)
     {
-        // uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
-        // message_window.Initialize(0);
-        // Plugin.Logger.LogInfo($"message_window pos {message_window.m_rootTransform.localPosition}");
-        // message_window.SetMessage(message, uCommonMessageWindow.Pos.Partner00);
-        // Plugin.Logger.LogInfo($"message_window pos {message_window.m_rootTransform.localPosition}");
+        uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
+        message_window.Initialize(0);
+        message_window.SetMessage(message, uCommonMessageWindow.Pos.Partner00);
                 
-        // string[] parts = message.Split("\n");
-        // int max_width = parts.MaxBy(x => x.Count()).Count();
-        // int max_height = parts.Count();
-        // message_window.m_window.sizeDelta = new Vector2(max_width * 8 + 120f, max_height * 30 + 60f);
+        string[] parts = message.Split("\n");
+        int max_width = parts.MaxBy(x => x.Count()).Count();
+        int max_height = parts.Count();
+        message_window.m_window.sizeDelta = new Vector2(max_width * 8 + 120f, max_height * 30 + 60f);
+        message_window.transform.SetParent(anchor);
 
-        // TalkMain talk_main = MainGameManager.Ref.eventScene;
-        // talk_main.m_common_message_window = message_window;
-
-        uShopPanelItemCaption item_caption = new uShopPanelItemCaption();
-        Plugin.Logger.LogInfo($"item_caption {item_caption}");
-        Plugin.Logger.LogInfo($"test {uShopPanel.ShopType.BUY}");
+        // uShopPanelItemCaption item_caption = new uShopPanelItemCaption();
+        // Plugin.Logger.LogInfo($"item_caption {item_caption}");
+        // Plugin.Logger.LogInfo($"test {uShopPanel.ShopType.BUY}");
 
         uShopPanelNumChange num_change = new GameObject("num_change").AddComponent<uShopPanelNumChange>();
-        Plugin.Logger.LogInfo($"num_change {num_change}");
 
         num_change.m_shopType = uShopPanel.ShopType.BUY;
         num_change.m_myMoney = 1;
@@ -204,15 +196,17 @@ public class Plugin : BasePlugin
         num_change.GetNumPrice(99 - num_change.m_numMax);
         Plugin.Logger.LogInfo($"GetNumPrice complete");
 
+        Plugin.Logger.LogInfo($"num_change {num_change}");
+        num_change.transform.SetParent(anchor);
+
         num_change.enablePanel(true);
-        num_change
 
         return message_window;
     }
 
-    public static uCommonMessageWindow MessageWindowWithImage(string message, string item_name)
+    public static uCommonMessageWindow MessageWindowWithImage(string message, string item_name, Transform anchor)
 	{
-        uCommonMessageWindow message_window = MessageWindow(message);
+        uCommonMessageWindow message_window = MessageWindow(message, anchor);
 
         ParameterItemData item_data = Plugin.ITEM_LOOKUP[item_name];
         Sprite sprite = Resources.Load<Sprite>("UI/item_icon/" + item_data.m_iconName);
@@ -386,7 +380,9 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
         Plugin.Logger.LogInfo("Patch_CScenarioScriptBase_CallCsvbBlock::PostFix");
         Plugin.Logger.LogInfo($"_csvbId {_csvbId} _blockId {_blockId}");
         if (_blockId == "D034_TALK01" && _csvbId == "SubScenario") {
-            Plugin.message_window = Plugin.MessageWindow("For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.");
+            Transform anchor = MainGameManager.Ref.commonSelectWindowUI.transform.Find("Base");
+            string message = "For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.";
+            Plugin.message_window = Plugin.MessageWindow(message, anchor);
             // __instance._DispCommonMessageWindow;
         }
     }
