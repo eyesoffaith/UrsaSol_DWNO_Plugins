@@ -18,6 +18,9 @@ TODO:
         - Can skip 2nd prompt entirely by running different scriptCommand.
         - Changing UI for Gostumon/Tyrannomon/Guadromon to have a item shop amount selector (uShopPanelNumChange) and item description (uShopPanelItemCaption)
     - Look into generating new panel to the right of screen kind of like a shop
+        - Looks like Canvas is used to do rendering. Canvas.renderMode must be RenderMode.ScreenSpaceOverlay for UI to be visible
+        - While interesting, let's abandon the idea of creating a library to allow for custom UI (at least those using the shop UI as it uses many fixed images)
+        - Pivot to instead create descriptive windows that display the ingredient names, quantity to be consumed, and an image of the item (if applicable) on the right of the screen
     - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
     - Include keyboard equivalent of gamepad Square for maxing num_exchange
 
@@ -140,6 +143,39 @@ public class Plugin : BasePlugin
         Harmony harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
         Plugin.original_CallCmdBlockCommonSelectWindow = harmony.Patch(GetOriginalMethod("CScenarioScript", "CallCmdBlockCommonSelectWindow"));
         harmony.PatchAll();
+    }
+
+    public static void ModdedUIAttempt()
+    {
+        GameObject ui_root = AppMainScript.Ref.UiRoot;
+        GameObject mod_base = new GameObject("ui/modded");
+        mod_base.transform.SetParent(ui_root.transform);
+
+        GameObject mod_branch = new GameObject(MyPluginInfo.PLUGIN_GUID);
+        mod_branch.transform.SetParent(mod_base.transform);
+
+        mod_branch.AddComponent<Canvas>();
+        Canvas canvas = mod_branch.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        Plugin.Logger.LogInfo($"canvas {canvas}");
+        canvas.transform.SetParent(mod_branch.transform);
+
+        uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
+        Plugin.Logger.LogInfo($"message_window {message_window}");
+        message_window.Initialize(0);
+        message_window.SetMessage("Test", uCommonMessageWindow.Pos.Partner01);
+
+        uCommonMessageWindow message_window2 = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
+        Plugin.Logger.LogInfo($"message_window {message_window}");
+        message_window2.Initialize(0);
+        message_window2.SetMessage("Test2", uCommonMessageWindow.Pos.Partner00);
+        message_window2.transform.SetParent(mod_branch.transform);
+
+        GameObject num_change_anchor = new GameObject("Purchase Number");
+        num_change_anchor.transform.SetParent(mod_branch.transform);
+        uShopPanelNumChange num_change = num_change_anchor.AddComponent<uShopPanelNumChange>();
+        Plugin.Logger.LogInfo($"num_change {num_change}");
+        num_change.Initialize();
     }
 
     public static uCommonMessageWindow MessageWindow(string message, Transform anchor)
@@ -381,8 +417,11 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
         Plugin.Logger.LogInfo($"_csvbId {_csvbId} _blockId {_blockId}");
         if (_blockId == "D034_TALK01" && _csvbId == "SubScenario") {
             Transform anchor = MainGameManager.Ref.commonSelectWindowUI.transform.Find("Base");
-            string message = "For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.";
-            Plugin.message_window = Plugin.MessageWindow(message, anchor);
+
+            Plugin.ModdedUIAttempt();
+
+            // string message = "For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.";
+            // Plugin.message_window = Plugin.MessageWindow(message, anchor);
             // __instance._DispCommonMessageWindow;
         }
     }
