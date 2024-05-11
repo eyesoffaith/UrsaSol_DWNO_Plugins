@@ -145,37 +145,29 @@ public class Plugin : BasePlugin
         harmony.PatchAll();
     }
 
-    public static void ModdedUIAttempt()
+    public static void GetMessageWindow()
     {
-        GameObject ui_root = AppMainScript.Ref.UiRoot;
-        GameObject mod_base = new GameObject("ui/modded");
-        mod_base.transform.SetParent(ui_root.transform);
+        GameObject modded_ui_base = GameObject.Find("ui/modded");
+        if (modded_ui_base == null) {
+            GameObject ui_root = AppMainScript.Ref.UiRoot;
+            modded_ui_base = new GameObject("ui/modded");
+            modded_ui_base.transform.SetParent(ui_root.transform);
+        }
+        GameObject mod_branch = modded_ui_base.transform.Find(MyPluginInfo.PLUGIN_GUID)?.gameObject;
+        if (mod_branch == null) {
+            mod_branch = new GameObject(MyPluginInfo.PLUGIN_GUID);
+            mod_branch.transform.SetParent(modded_ui_base.transform);
+        }
+        uCommonMessageWindow message_window = mod_branch.transform.Find("Details Window")?.gameObject?.GetComponent<uCommonMessageWindow>();
+        if (message_window == null) {
+            message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
+            message_window.Initialize(0);
+            message_window.SetMessage("Test2", uCommonMessageWindow.Pos.Partner00);
+            message_window.name = "Details Window";
+            message_window.transform.SetParent(mod_branch.transform);
+        }
 
-        GameObject mod_branch = new GameObject(MyPluginInfo.PLUGIN_GUID);
-        mod_branch.transform.SetParent(mod_base.transform);
-
-        mod_branch.AddComponent<Canvas>();
-        Canvas canvas = mod_branch.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        Plugin.Logger.LogInfo($"canvas {canvas}");
-        canvas.transform.SetParent(mod_branch.transform);
-
-        uCommonMessageWindow message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
-        Plugin.Logger.LogInfo($"message_window {message_window}");
-        message_window.Initialize(0);
-        message_window.SetMessage("Test", uCommonMessageWindow.Pos.Partner01);
-
-        uCommonMessageWindow message_window2 = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
-        Plugin.Logger.LogInfo($"message_window {message_window}");
-        message_window2.Initialize(0);
-        message_window2.SetMessage("Test2", uCommonMessageWindow.Pos.Partner00);
-        message_window2.transform.SetParent(mod_branch.transform);
-
-        GameObject num_change_anchor = new GameObject("Purchase Number");
-        num_change_anchor.transform.SetParent(mod_branch.transform);
-        uShopPanelNumChange num_change = num_change_anchor.AddComponent<uShopPanelNumChange>();
-        Plugin.Logger.LogInfo($"num_change {num_change}");
-        num_change.Initialize();
+        return message_window;
     }
 
     public static uCommonMessageWindow MessageWindow(string message, Transform anchor)
@@ -418,7 +410,7 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
         if (_blockId == "D034_TALK01" && _csvbId == "SubScenario") {
             Transform anchor = MainGameManager.Ref.commonSelectWindowUI.transform.Find("Base");
 
-            Plugin.ModdedUIAttempt();
+            Plugin.message_window = Plugin.GetMessageWindow();
 
             // string message = "For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.";
             // Plugin.message_window = Plugin.MessageWindow(message, anchor);
