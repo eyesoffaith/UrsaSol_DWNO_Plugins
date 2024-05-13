@@ -320,18 +320,32 @@ public static class Patch_uCommonSelectWindowPanel_Setup
 [HarmonyPatch(typeof(uCommonSelectWindowPanel), "Update")]
 public static class Patch_uCommonSelectWindowPanel_Update
 {
-    public static void SetCaptionText(uCommonSelectWindowPanel __instance, ParameterCommonSelectWindow.CheckData[] checkDataList) {
+    public static void SetDetailsText(ParameterCommonSelectWindow.CheckData[] checkDataList, ParameterCommonSelectWindowMode.WindowType window_type) {
         if (Plugin.message_window != null) {
-            // dynamic checkDataList = windowOptionParams.GetCheckDataList(ParameterCommonSelectWindow.CheckDataType.SelectData).ToArray();
-            string message = $"x{checkDataList[0].m_value} {Language.GetString(checkDataList[0].m_item)}";
-            if (checkDataList.Count() > 1) 
-                message += $" & x{checkDataList[1].m_value} {Language.GetString(checkDataList[1].m_item)}";
+            Dictionary<string, int> item_collection = Plugin.town_materials;
+            string container_message = "In Storage:";
+            if (Plugin.player_inventory_window_types.Contains(window_type)) {
+                item_collection = Plugin.player_items;
+                container_message = "In Inventory:";
+            }
+            string message = String.Format("{0, -50}", container_message);
+
+            foreach (var checkData in checkDataList) {
+                string item_name = Language.GetString(checkData.m_item);
+                int count = item_collection.ContainsKey(item_name) ? item_collection[item_name] : 0;
+                message += String.Format("\n{0, -50} x{1}", item_name, count);
+            }
+            message += "\n\n";
+
+            List<string> item_count_messages = new List<string>();
+            foreach (var checkData in checkDataList) {
+                string item_name = Language.GetString(checkData.m_item);
+                item_count_messages.Add($"{item_name} x{checkData.m_value}");
+            }
+            message += String.Join(" & ", item_count_messages);
             message += $"\nExchange x{Plugin.num_exchanges}?";
             Plugin.message_window.SetMessage(message, uCommonMessageWindow.Pos.Partner00);
         }
-        Text captionText = __instance.m_captionPanel.m_text;
-        UtilityScript.SetLangButtonText(ref captionText, "cw_caption_0");
-        captionText.text = captionText.text.Replace("OK", $"Exchange x{Plugin.num_exchanges}");
     }
 
     public static void Postfix(uCommonSelectWindowPanel __instance) {
@@ -347,10 +361,17 @@ public static class Patch_uCommonSelectWindowPanel_Update
         dynamic windowOptionParams = __instance.m_paramCommonSelectWindowList[selected_option];
         ParameterCommonSelectWindow.CheckData[] checkDataList = windowOptionParams.GetCheckDataList(ParameterCommonSelectWindow.CheckDataType.SelectData).ToArray();
         checkDataList = checkDataList.Where(x => x.m_value > 0).ToArray();
+        
+
+        // ParameterCommonSelectWindow.CheckData[] checkDataList2 = windowOptionParams.GetCheckDataList(ParameterCommonSelectWindow.CheckDataType.OutData).ToArray();
+        // Plugin.Logger.LogInfo("Out Items");
+        // foreach (var checkData in checkDataList2) {
+        //     Plugin.Logger.LogInfo($"{Language.GetString(checkData.m_item)} [{checkData.m_item}] x{checkData.m_value}");
+        // }
 
         if (checkDataList[0].m_value > 0) {
-            var itemCollection = Plugin.player_inventory_window_types.Contains(window_type) ? Plugin.player_items : Plugin.town_materials;
-            int max_num_exchanges = checkDataList.Select(x => itemCollection[(string)Language.GetString(x.m_item)] / (int)x.m_value).Min();
+            var item_collection = Plugin.player_inventory_window_types.Contains(window_type) ? Plugin.player_items : Plugin.town_materials;
+            int max_num_exchanges = checkDataList.Select(x => item_collection[(string)Language.GetString(x.m_item)] / (int)x.m_value).Min();
             int num_exchanges = Plugin.num_exchanges;
             if (PadManager.IsTrigger(PadManager.BUTTON.bSquare))
                 num_exchanges = max_num_exchanges;
@@ -365,7 +386,7 @@ public static class Patch_uCommonSelectWindowPanel_Update
             if (num_exchanges != Plugin.num_exchanges) {
                 Plugin.num_exchanges = num_exchanges;
                 CriSoundManager.PlayCommonSe("S_005");
-                SetCaptionText(__instance, checkDataList);
+                SetDetailsText(checkDataList, window_type);
             }
         }
 
@@ -374,7 +395,7 @@ public static class Patch_uCommonSelectWindowPanel_Update
 
         Plugin.selected_option = selected_option;
         Plugin.num_exchanges = 1;
-        SetCaptionText(__instance, checkDataList);
+        SetDetailsText(checkDataList, window_type);
 
         string scriptCommand = windowOptionParams.m_scriptCommand;
         string scriptType = scriptCommand.Split("_")[0];
