@@ -145,7 +145,7 @@ public class Plugin : BasePlugin
         harmony.PatchAll();
     }
 
-    public static void GetMessageWindow()
+    public static uCommonMessageWindow GetMessageWindow()
     {
         GameObject modded_ui_base = GameObject.Find("ui/modded");
         if (modded_ui_base == null) {
@@ -162,7 +162,6 @@ public class Plugin : BasePlugin
         if (message_window == null) {
             message_window = UnityEngine.Object.Instantiate<uCommonMessageWindow>(MainGameManager.Ref.MessageManager.Get00()).GetComponent<uCommonMessageWindow>();
             message_window.Initialize(0);
-            message_window.SetMessage("Test2", uCommonMessageWindow.Pos.Partner00);
             message_window.name = "Details Window";
             message_window.transform.SetParent(mod_branch.transform);
         }
@@ -275,7 +274,7 @@ public static class Patch_AppMainScript__FinishedParameterLoad
 public static class Patch_uCommonSelectWindowPanel_Setup
 {
     public static void Postfix(ParameterCommonSelectWindowMode.WindowType window_type, uCommonSelectWindowPanel __instance) {
-        Plugin.selected_recipe.Clear();
+        // Plugin.selected_recipe.Clear();
         Plugin.selected_option = -1;
 
         if (Plugin.town_material_window_types.Contains(window_type)) {
@@ -321,10 +320,18 @@ public static class Patch_uCommonSelectWindowPanel_Setup
 [HarmonyPatch(typeof(uCommonSelectWindowPanel), "Update")]
 public static class Patch_uCommonSelectWindowPanel_Update
 {
-    public static void SetCaptionText(uCommonSelectWindowPanelCaption captionPanel, string replace, string with) {
-        Text captionText = captionPanel.m_text;
+    public static void SetCaptionText(uCommonSelectWindowPanel __instance, ParameterCommonSelectWindow.CheckData[] checkDataList) {
+        if (Plugin.message_window != null) {
+            // dynamic checkDataList = windowOptionParams.GetCheckDataList(ParameterCommonSelectWindow.CheckDataType.SelectData).ToArray();
+            string message = $"x{checkDataList[0].m_value} {Language.GetString(checkDataList[0].m_item)}";
+            if (checkDataList.Count() > 1) 
+                message += $" & x{checkDataList[1].m_value} {Language.GetString(checkDataList[1].m_item)}";
+            message += $"\nExchange x{Plugin.num_exchanges}?";
+            Plugin.message_window.SetMessage(message, uCommonMessageWindow.Pos.Partner00);
+        }
+        Text captionText = __instance.m_captionPanel.m_text;
         UtilityScript.SetLangButtonText(ref captionText, "cw_caption_0");
-        captionText.text = captionText.text.Replace(replace, with);
+        captionText.text = captionText.text.Replace("OK", $"Exchange x{Plugin.num_exchanges}");
     }
 
     public static void Postfix(uCommonSelectWindowPanel __instance) {
@@ -337,10 +344,13 @@ public static class Patch_uCommonSelectWindowPanel_Update
         // Temp-solution: +1 to "selected_option" so we can pull the correct item
         if (Plugin.town_material_window_types.Contains(window_type) && selected_option > 2)
             selected_option += 1;
+        dynamic windowOptionParams = __instance.m_paramCommonSelectWindowList[selected_option];
+        ParameterCommonSelectWindow.CheckData[] checkDataList = windowOptionParams.GetCheckDataList(ParameterCommonSelectWindow.CheckDataType.SelectData).ToArray();
+        checkDataList = checkDataList.Where(x => x.m_value > 0).ToArray();
 
-        if (Plugin.selected_recipe.Any()) {
+        if (checkDataList[0].m_value > 0) {
             var itemCollection = Plugin.player_inventory_window_types.Contains(window_type) ? Plugin.player_items : Plugin.town_materials;
-            int max_num_exchanges = Plugin.selected_recipe.Select(x => itemCollection[(string)x.Item1] / (int)x.Item2).Min();;
+            int max_num_exchanges = checkDataList.Select(x => itemCollection[(string)Language.GetString(x.m_item)] / (int)x.m_value).Min();
             int num_exchanges = Plugin.num_exchanges;
             if (PadManager.IsTrigger(PadManager.BUTTON.bSquare))
                 num_exchanges = max_num_exchanges;
@@ -352,10 +362,11 @@ public static class Patch_uCommonSelectWindowPanel_Update
                 num_exchanges = max_num_exchanges;
             if (num_exchanges < 1)
                 num_exchanges = 1;
-            if (num_exchanges != Plugin.num_exchanges)
+            if (num_exchanges != Plugin.num_exchanges) {
+                Plugin.num_exchanges = num_exchanges;
                 CriSoundManager.PlayCommonSe("S_005");
-            Plugin.num_exchanges = num_exchanges;
-            SetCaptionText(__instance.m_captionPanel, "OK", $"Exchange x{num_exchanges}");
+                SetCaptionText(__instance, checkDataList);
+            }
         }
 
         if (selected_option == Plugin.selected_option)
@@ -363,22 +374,22 @@ public static class Patch_uCommonSelectWindowPanel_Update
 
         Plugin.selected_option = selected_option;
         Plugin.num_exchanges = 1;
+        SetCaptionText(__instance, checkDataList);
 
-        dynamic windowOptionParams = __instance.m_paramCommonSelectWindowList[selected_option];
         string scriptCommand = windowOptionParams.m_scriptCommand;
         string scriptType = scriptCommand.Split("_")[0];
         
-        Plugin.selected_recipe.Clear();
-        if (Plugin.town_material_window_types.Contains(window_type)) {
-            uint item_id = windowOptionParams.m_select_item1;
-            Plugin.selected_recipe.Add((Language.GetString(item_id), windowOptionParams.m_select_value1));
-        }
-        if (Plugin.player_inventory_window_types.Contains(window_type)) {
-            (string, (string, int)[] Input) recipe = Plugin.lab_recipes[selected_option];
-            foreach ((string name, int count) item in recipe.Input) {
-                Plugin.selected_recipe.Add((item.name, item.count));
-            }
-        }
+        // Plugin.selected_recipe.Clear();
+        // if (Plugin.town_material_window_types.Contains(window_type)) {
+        //     uint item_id = windowOptionParams.m_select_item1;
+        //     Plugin.selected_recipe.Add((Language.GetString(item_id), windowOptionParams.m_select_value1));
+        // }
+        // if (Plugin.player_inventory_window_types.Contains(window_type)) {
+        //     (string, (string, int)[] Input) recipe = Plugin.lab_recipes[selected_option];
+        //     foreach ((string name, int count) item in recipe.Input) {
+        //         Plugin.selected_recipe.Add((item.name, item.count));
+        //     }
+        // }
     }
 }
 [HarmonyPatch(typeof(uCommonSelectWindowPanel), "enablePanel")]
@@ -407,15 +418,9 @@ public static class Patch_CScenarioScriptBase_CallCsvbBlock
     public static void Postfix(string _csvbId, string _blockId, dynamic __instance) {
         Plugin.Logger.LogInfo("Patch_CScenarioScriptBase_CallCsvbBlock::PostFix");
         Plugin.Logger.LogInfo($"_csvbId {_csvbId} _blockId {_blockId}");
-        if (_blockId == "D034_TALK01" && _csvbId == "SubScenario") {
-            Transform anchor = MainGameManager.Ref.commonSelectWindowUI.transform.Find("Base");
 
+        if (_csvbId == "SubScenario" && new string[] { "C024_TALK01", "D021_TALK01", "D034_TALK01" }.Contains(_blockId))
             Plugin.message_window = Plugin.GetMessageWindow();
-
-            // string message = "For the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.\nFor the 216th time, he said he would quit drinking soda after this last Coke.\nIt must be five o'clock somewhere.\nI never knew what hardship looked like until it started raining bowling balls.";
-            // Plugin.message_window = Plugin.MessageWindow(message, anchor);
-            // __instance._DispCommonMessageWindow;
-        }
     }
 }
 
