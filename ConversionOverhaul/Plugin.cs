@@ -21,6 +21,7 @@ TODO:
         - Looks like Canvas is used to do rendering. Canvas.renderMode must be RenderMode.ScreenSpaceOverlay for UI to be visible
         - While interesting, let's abandon the idea of creating a library to allow for custom UI (at least those using the shop UI as it uses many fixed images)
         - Pivot to instead create descriptive windows that display the ingredient names, quantity to be consumed, and an image of the item (if applicable) on the right of the screen
+        - Kinda coming back to the idea of recreating how the game does some of it's shop elements. Try looking into NGUITools. It seems to have utility scripts for building the GameObject tree and rendering UI
     - Include thumbstick for +/- num_exchange (currently on DPad and arrow keys)
     - Include keyboard equivalent of gamepad Square for maxing num_exchange
 
@@ -165,6 +166,8 @@ public class Plugin : BasePlugin
             message_window.name = "Details Window";
             message_window.transform.SetParent(mod_branch.transform);
         }
+
+        uShopPanelItemCaption item_caption1 = mod_branch.AddComponent<>();
 
         return message_window;
     }
